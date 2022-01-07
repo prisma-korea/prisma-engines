@@ -24,6 +24,7 @@ pub struct MongoDbMigrationConnector {
     connection_string: String,
     client: OnceCell<Client>,
     preview_features: BitFlags<PreviewFeature>,
+    host: Box<dyn migration_connector::ConnectorHost>,
 }
 
 impl MongoDbMigrationConnector {
@@ -32,6 +33,7 @@ impl MongoDbMigrationConnector {
             connection_string,
             preview_features,
             client: OnceCell::new(),
+            host: Box::new(migration_connector::EmptyHost),
         }
     }
 
@@ -118,7 +120,9 @@ impl MigrationConnector for MongoDbMigrationConnector {
         Ok(())
     }
 
-    fn set_host(&mut self, _host: Box<dyn migration_connector::ConnectorHost>) {}
+    fn set_host(&mut self, host: Box<dyn migration_connector::ConnectorHost>) {
+        self.host = host;
+    }
 
     async fn validate_migrations(
         &self,

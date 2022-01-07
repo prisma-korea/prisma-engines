@@ -4,6 +4,7 @@ mod commands;
 mod logger;
 
 use crate::logger::log_error_and_exit;
+use migration_connector::ConnectorError;
 use migration_core::rpc_api;
 use structopt::StructOpt;
 
@@ -73,13 +74,19 @@ fn set_panic_hook() {
     }));
 }
 
-struct JsonRpcHost;
+struct JsonRpcHost {
+    client: json_rpc_stdio::Client,
+}
 
 #[async_trait::async_trait]
 impl migration_connector::ConnectorHost for JsonRpcHost {
     async fn print(&self, text: &str) -> migration_connector::ConnectorResult<()> {
-        tracing::info!(migrate_action = "log", "{}", text);
-        Ok(())
+        let notification = serde_json::json!({ "content": text });
+
+        self.client
+            .notify("print".to_owned(), notification)
+            .await
+            .map_err(|err| ConnectorError::from_source(err, "JSON-RPC error"))
     }
 }
 
@@ -92,9 +99,12 @@ async fn start_engine(datamodel_location: &str) {
     let mut datamodel = String::new();
     file.read_to_string(&mut datamodel).unwrap();
 
-    match rpc_api(&datamodel, Box::new(JsonRpcHost)).await {
+    let (client, adapter) = json_rpc_stdio::new_client();
+    let host = JsonRpcHost { client };
+
+    match rpc_api(&datamodel, Box::new(host)).await {
         // Block the thread and handle IO in async until EOF.
-        Ok(api) => json_rpc_stdio::run(&api).await.unwrap(),
+        Ok(api) => json_rpc_stdio::run_with_client(&api, adapter).await.unwrap(),
         Err(err) => {
             log_error_and_exit(err);
         }
