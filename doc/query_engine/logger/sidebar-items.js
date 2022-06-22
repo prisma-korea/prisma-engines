@@ -1,1 +1,1 @@
-initSidebarItems({"struct":[["Logger","An installer for a global logger."]],"type":[["LoggerResult",""]]});
+initSidebarItems({"struct":[["Logger","An installer for a global logger."]]});

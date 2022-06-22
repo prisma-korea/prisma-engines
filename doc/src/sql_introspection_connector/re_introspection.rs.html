@@ -1,102 +1,107 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `introspection-engine&#x2F;connectors&#x2F;sql-introspection-connector&#x2F;src&#x2F;re_introspection.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>re_introspection.rs - source</title><link rel="stylesheet" type="text/css" href="../../normalize.css"><link rel="stylesheet" type="text/css" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../light.css"  id="themeStyle"><link rel="stylesheet" type="text/css" href="../../dark.css" disabled ><link rel="stylesheet" type="text/css" href="../../ayu.css" disabled ><script id="default-settings" ></script><script src="../../storage.js"></script><script src="../../crates.js"></script><noscript><link rel="stylesheet" href="../../noscript.css"></noscript><link rel="alternate icon" type="image/png" href="../../favicon-16x16.png"><link rel="alternate icon" type="image/png" href="../../favicon-32x32.png"><link rel="icon" type="image/svg+xml" href="../../favicon.svg"><style type="text/css">#crate-search{background-image:url("../../down-arrow.svg");}</style></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu" role="button">&#9776;</div><a href='../../sql_introspection_connector/index.html'><div class='logo-container rust-logo'><img src='../../rust-logo.png' alt='logo'></div></a></nav><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!" aria-haspopup="menu" title="themes"><img width="18" height="18" alt="Pick another theme!" src="../../brush.svg"></button><div id="theme-choices" role="menu"></div></div><nav class="sub"><form class="search-form"><div class="search-container"><div><select id="crate-search"><option value="All crates">All crates</option></select><input class="search-input" name="search" disabled autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"></div><button type="button" id="help-button" title="help">?</button><a id="settings-menu" href="../../settings.html" title="settings"><img width="18" height="18" alt="Change settings" src="../../wheel.svg"></a></div></form></nav><section id="main" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">  1</span>
-<span id="2">  2</span>
-<span id="3">  3</span>
-<span id="4">  4</span>
-<span id="5">  5</span>
-<span id="6">  6</span>
-<span id="7">  7</span>
-<span id="8">  8</span>
-<span id="9">  9</span>
-<span id="10"> 10</span>
-<span id="11"> 11</span>
-<span id="12"> 12</span>
-<span id="13"> 13</span>
-<span id="14"> 14</span>
-<span id="15"> 15</span>
-<span id="16"> 16</span>
-<span id="17"> 17</span>
-<span id="18"> 18</span>
-<span id="19"> 19</span>
-<span id="20"> 20</span>
-<span id="21"> 21</span>
-<span id="22"> 22</span>
-<span id="23"> 23</span>
-<span id="24"> 24</span>
-<span id="25"> 25</span>
-<span id="26"> 26</span>
-<span id="27"> 27</span>
-<span id="28"> 28</span>
-<span id="29"> 29</span>
-<span id="30"> 30</span>
-<span id="31"> 31</span>
-<span id="32"> 32</span>
-<span id="33"> 33</span>
-<span id="34"> 34</span>
-<span id="35"> 35</span>
-<span id="36"> 36</span>
-<span id="37"> 37</span>
-<span id="38"> 38</span>
-<span id="39"> 39</span>
-<span id="40"> 40</span>
-<span id="41"> 41</span>
-<span id="42"> 42</span>
-<span id="43"> 43</span>
-<span id="44"> 44</span>
-<span id="45"> 45</span>
-<span id="46"> 46</span>
-<span id="47"> 47</span>
-<span id="48"> 48</span>
-<span id="49"> 49</span>
-<span id="50"> 50</span>
-<span id="51"> 51</span>
-<span id="52"> 52</span>
-<span id="53"> 53</span>
-<span id="54"> 54</span>
-<span id="55"> 55</span>
-<span id="56"> 56</span>
-<span id="57"> 57</span>
-<span id="58"> 58</span>
-<span id="59"> 59</span>
-<span id="60"> 60</span>
-<span id="61"> 61</span>
-<span id="62"> 62</span>
-<span id="63"> 63</span>
-<span id="64"> 64</span>
-<span id="65"> 65</span>
-<span id="66"> 66</span>
-<span id="67"> 67</span>
-<span id="68"> 68</span>
-<span id="69"> 69</span>
-<span id="70"> 70</span>
-<span id="71"> 71</span>
-<span id="72"> 72</span>
-<span id="73"> 73</span>
-<span id="74"> 74</span>
-<span id="75"> 75</span>
-<span id="76"> 76</span>
-<span id="77"> 77</span>
-<span id="78"> 78</span>
-<span id="79"> 79</span>
-<span id="80"> 80</span>
-<span id="81"> 81</span>
-<span id="82"> 82</span>
-<span id="83"> 83</span>
-<span id="84"> 84</span>
-<span id="85"> 85</span>
-<span id="86"> 86</span>
-<span id="87"> 87</span>
-<span id="88"> 88</span>
-<span id="89"> 89</span>
-<span id="90"> 90</span>
-<span id="91"> 91</span>
-<span id="92"> 92</span>
-<span id="93"> 93</span>
-<span id="94"> 94</span>
-<span id="95"> 95</span>
-<span id="96"> 96</span>
-<span id="97"> 97</span>
-<span id="98"> 98</span>
-<span id="99"> 99</span>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `introspection-engine/connectors/sql-introspection-connector/src/re_introspection.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>re_introspection.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" type="text/css" href="../../normalize.css"><link rel="stylesheet" type="text/css" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../ayu.css" disabled><link rel="stylesheet" type="text/css" href="../../dark.css" disabled><link rel="stylesheet" type="text/css" href="../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../storage.js"></script><script src="../../crates.js"></script><script defer src="../../main.js"></script><script defer src="../../source-script.js"></script><script defer src="../../source-files.js"></script>
+    <noscript><link rel="stylesheet" href="../../noscript.css"></noscript><link rel="alternate icon" type="image/png" href="../../favicon-16x16.png"><link rel="alternate icon" type="image/png" href="../../favicon-32x32.png"><link rel="icon" type="image/svg+xml" href="../../favicon.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../sql_introspection_connector/index.html"><div class="logo-container"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></div>
+        </a><h2 class="location"></h2>
+    </nav>
+    <nav class="sidebar"><a class="sidebar-logo" href="../../sql_introspection_connector/index.html"><div class="logo-container"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></div>
+        </a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../sql_introspection_connector/index.html"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></a><nav class="sub"><div class="theme-picker hidden"><button id="theme-picker" aria-label="Pick another theme!" aria-haspopup="menu" title="themes"><img width="22" height="22" alt="Pick another theme!" src="../../brush.svg"></button><div id="theme-choices" role="menu"></div></div><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><button type="button" id="help-button" title="help">?</button><a id="settings-menu" href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../wheel.svg"></a></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
+<span id="2">2</span>
+<span id="3">3</span>
+<span id="4">4</span>
+<span id="5">5</span>
+<span id="6">6</span>
+<span id="7">7</span>
+<span id="8">8</span>
+<span id="9">9</span>
+<span id="10">10</span>
+<span id="11">11</span>
+<span id="12">12</span>
+<span id="13">13</span>
+<span id="14">14</span>
+<span id="15">15</span>
+<span id="16">16</span>
+<span id="17">17</span>
+<span id="18">18</span>
+<span id="19">19</span>
+<span id="20">20</span>
+<span id="21">21</span>
+<span id="22">22</span>
+<span id="23">23</span>
+<span id="24">24</span>
+<span id="25">25</span>
+<span id="26">26</span>
+<span id="27">27</span>
+<span id="28">28</span>
+<span id="29">29</span>
+<span id="30">30</span>
+<span id="31">31</span>
+<span id="32">32</span>
+<span id="33">33</span>
+<span id="34">34</span>
+<span id="35">35</span>
+<span id="36">36</span>
+<span id="37">37</span>
+<span id="38">38</span>
+<span id="39">39</span>
+<span id="40">40</span>
+<span id="41">41</span>
+<span id="42">42</span>
+<span id="43">43</span>
+<span id="44">44</span>
+<span id="45">45</span>
+<span id="46">46</span>
+<span id="47">47</span>
+<span id="48">48</span>
+<span id="49">49</span>
+<span id="50">50</span>
+<span id="51">51</span>
+<span id="52">52</span>
+<span id="53">53</span>
+<span id="54">54</span>
+<span id="55">55</span>
+<span id="56">56</span>
+<span id="57">57</span>
+<span id="58">58</span>
+<span id="59">59</span>
+<span id="60">60</span>
+<span id="61">61</span>
+<span id="62">62</span>
+<span id="63">63</span>
+<span id="64">64</span>
+<span id="65">65</span>
+<span id="66">66</span>
+<span id="67">67</span>
+<span id="68">68</span>
+<span id="69">69</span>
+<span id="70">70</span>
+<span id="71">71</span>
+<span id="72">72</span>
+<span id="73">73</span>
+<span id="74">74</span>
+<span id="75">75</span>
+<span id="76">76</span>
+<span id="77">77</span>
+<span id="78">78</span>
+<span id="79">79</span>
+<span id="80">80</span>
+<span id="81">81</span>
+<span id="82">82</span>
+<span id="83">83</span>
+<span id="84">84</span>
+<span id="85">85</span>
+<span id="86">86</span>
+<span id="87">87</span>
+<span id="88">88</span>
+<span id="89">89</span>
+<span id="90">90</span>
+<span id="91">91</span>
+<span id="92">92</span>
+<span id="93">93</span>
+<span id="94">94</span>
+<span id="95">95</span>
+<span id="96">96</span>
+<span id="97">97</span>
+<span id="98">98</span>
+<span id="99">99</span>
 <span id="100">100</span>
 <span id="101">101</span>
 <span id="102">102</span>
@@ -722,11 +727,170 @@
 <span id="722">722</span>
 <span id="723">723</span>
 <span id="724">724</span>
+<span id="725">725</span>
+<span id="726">726</span>
+<span id="727">727</span>
+<span id="728">728</span>
+<span id="729">729</span>
+<span id="730">730</span>
+<span id="731">731</span>
+<span id="732">732</span>
+<span id="733">733</span>
+<span id="734">734</span>
+<span id="735">735</span>
+<span id="736">736</span>
+<span id="737">737</span>
+<span id="738">738</span>
+<span id="739">739</span>
+<span id="740">740</span>
+<span id="741">741</span>
+<span id="742">742</span>
+<span id="743">743</span>
+<span id="744">744</span>
+<span id="745">745</span>
+<span id="746">746</span>
+<span id="747">747</span>
+<span id="748">748</span>
+<span id="749">749</span>
+<span id="750">750</span>
+<span id="751">751</span>
+<span id="752">752</span>
+<span id="753">753</span>
+<span id="754">754</span>
+<span id="755">755</span>
+<span id="756">756</span>
+<span id="757">757</span>
+<span id="758">758</span>
+<span id="759">759</span>
+<span id="760">760</span>
+<span id="761">761</span>
+<span id="762">762</span>
+<span id="763">763</span>
+<span id="764">764</span>
+<span id="765">765</span>
+<span id="766">766</span>
+<span id="767">767</span>
+<span id="768">768</span>
+<span id="769">769</span>
+<span id="770">770</span>
+<span id="771">771</span>
+<span id="772">772</span>
+<span id="773">773</span>
+<span id="774">774</span>
+<span id="775">775</span>
+<span id="776">776</span>
+<span id="777">777</span>
+<span id="778">778</span>
+<span id="779">779</span>
+<span id="780">780</span>
+<span id="781">781</span>
+<span id="782">782</span>
+<span id="783">783</span>
+<span id="784">784</span>
+<span id="785">785</span>
+<span id="786">786</span>
+<span id="787">787</span>
+<span id="788">788</span>
+<span id="789">789</span>
+<span id="790">790</span>
+<span id="791">791</span>
+<span id="792">792</span>
+<span id="793">793</span>
+<span id="794">794</span>
+<span id="795">795</span>
+<span id="796">796</span>
+<span id="797">797</span>
+<span id="798">798</span>
+<span id="799">799</span>
+<span id="800">800</span>
+<span id="801">801</span>
+<span id="802">802</span>
+<span id="803">803</span>
+<span id="804">804</span>
+<span id="805">805</span>
+<span id="806">806</span>
+<span id="807">807</span>
+<span id="808">808</span>
+<span id="809">809</span>
+<span id="810">810</span>
+<span id="811">811</span>
+<span id="812">812</span>
+<span id="813">813</span>
+<span id="814">814</span>
+<span id="815">815</span>
+<span id="816">816</span>
+<span id="817">817</span>
+<span id="818">818</span>
+<span id="819">819</span>
+<span id="820">820</span>
+<span id="821">821</span>
+<span id="822">822</span>
+<span id="823">823</span>
+<span id="824">824</span>
+<span id="825">825</span>
+<span id="826">826</span>
+<span id="827">827</span>
+<span id="828">828</span>
+<span id="829">829</span>
+<span id="830">830</span>
+<span id="831">831</span>
+<span id="832">832</span>
+<span id="833">833</span>
+<span id="834">834</span>
+<span id="835">835</span>
+<span id="836">836</span>
+<span id="837">837</span>
+<span id="838">838</span>
+<span id="839">839</span>
+<span id="840">840</span>
+<span id="841">841</span>
+<span id="842">842</span>
+<span id="843">843</span>
+<span id="844">844</span>
+<span id="845">845</span>
+<span id="846">846</span>
+<span id="847">847</span>
+<span id="848">848</span>
+<span id="849">849</span>
+<span id="850">850</span>
+<span id="851">851</span>
+<span id="852">852</span>
+<span id="853">853</span>
+<span id="854">854</span>
+<span id="855">855</span>
+<span id="856">856</span>
+<span id="857">857</span>
+<span id="858">858</span>
+<span id="859">859</span>
+<span id="860">860</span>
+<span id="861">861</span>
+<span id="862">862</span>
+<span id="863">863</span>
+<span id="864">864</span>
+<span id="865">865</span>
+<span id="866">866</span>
+<span id="867">867</span>
+<span id="868">868</span>
+<span id="869">869</span>
+<span id="870">870</span>
+<span id="871">871</span>
+<span id="872">872</span>
+<span id="873">873</span>
+<span id="874">874</span>
+<span id="875">875</span>
+<span id="876">876</span>
+<span id="877">877</span>
+<span id="878">878</span>
+<span id="879">879</span>
+<span id="880">880</span>
+<span id="881">881</span>
+<span id="882">882</span>
+<span id="883">883</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::introspection_helpers</span>::{
     <span class="ident">replace_index_field_names</span>, <span class="ident">replace_pk_field_names</span>, <span class="ident">replace_relation_info_field_names</span>,
 };
 <span class="kw">use</span> <span class="kw">crate</span>::{<span class="ident">warnings</span>::<span class="kw-2">*</span>, <span class="ident">SqlFamilyTrait</span>};
-<span class="kw">use</span> <span class="ident">datamodel</span>::{<span class="ident">Datamodel</span>, <span class="ident">DefaultValue</span>, <span class="ident">Field</span>, <span class="ident">FieldType</span>, <span class="ident">Ignorable</span>, <span class="ident">ValueGenerator</span>, <span class="ident">WithName</span>};
+<span class="kw">use</span> <span class="ident">datamodel::dml</span>::{<span class="ident">Datamodel</span>, <span class="ident">DefaultValue</span>, <span class="ident">Field</span>, <span class="ident">FieldType</span>, <span class="ident">Ignorable</span>, <span class="ident">ValueGenerator</span>, <span class="ident">WithName</span>};
 <span class="kw">use</span> <span class="ident">introspection_connector</span>::{<span class="ident">IntrospectionContext</span>, <span class="ident">Warning</span>};
 <span class="kw">use</span> <span class="ident">prisma_value::PrismaValue</span>;
 <span class="kw">use</span> <span class="ident">std::cmp::Ordering</span>::{<span class="self">self</span>, <span class="ident">Equal</span>, <span class="ident">Greater</span>, <span class="ident">Less</span>};
@@ -734,9 +898,9 @@
 
 <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">enrich</span>(
     <span class="ident">old_data_model</span>: <span class="kw-2">&amp;</span><span class="ident">Datamodel</span>,
-    <span class="ident">new_data_model</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Datamodel</span>,
+    <span class="ident">new_data_model</span>: <span class="kw-2">&amp;mut</span> <span class="ident">Datamodel</span>,
     <span class="ident">ctx</span>: <span class="kw-2">&amp;</span><span class="ident">IntrospectionContext</span>,
-    <span class="ident">warnings</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">Warning</span><span class="op">&gt;</span>,
+    <span class="ident">warnings</span>: <span class="kw-2">&amp;mut</span> <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">Warning</span><span class="op">&gt;</span>,
 ) {
     <span class="comment">// Keep @relation attributes even if the database doesn&#39;t use foreign keys</span>
     <span class="kw">if</span> <span class="op">!</span><span class="ident">ctx</span>.<span class="ident">foreign_keys_enabled</span>() {
@@ -752,10 +916,12 @@
     <span class="ident">merge_changed_relation_names</span>(<span class="ident">old_data_model</span>, <span class="ident">new_data_model</span>);
     <span class="ident">merge_changed_enum_names</span>(<span class="ident">old_data_model</span>, <span class="ident">new_data_model</span>, <span class="ident">warnings</span>);
     <span class="ident">merge_changed_enum_values</span>(<span class="ident">old_data_model</span>, <span class="ident">new_data_model</span>, <span class="ident">warnings</span>);
+    <span class="ident">merge_changed_enum_defaults</span>(<span class="ident">old_data_model</span>, <span class="ident">new_data_model</span>, <span class="ident">warnings</span>);
     <span class="ident">merge_mysql_enum_names</span>(<span class="ident">old_data_model</span>, <span class="ident">new_data_model</span>, <span class="ident">ctx</span>);
     <span class="ident">merge_prisma_level_defaults</span>(<span class="ident">old_data_model</span>, <span class="ident">new_data_model</span>, <span class="ident">warnings</span>);
     <span class="ident">merge_ignores</span>(<span class="ident">old_data_model</span>, <span class="ident">new_data_model</span>, <span class="ident">warnings</span>);
     <span class="ident">merge_comments</span>(<span class="ident">old_data_model</span>, <span class="ident">new_data_model</span>);
+    <span class="ident">keep_index_ordering</span>(<span class="ident">old_data_model</span>, <span class="ident">new_data_model</span>);
 
     <span class="comment">// restore old model order</span>
     <span class="ident">new_data_model</span>.<span class="ident">models</span>.<span class="ident">sort_by</span>(<span class="op">|</span><span class="ident">model_a</span>, <span class="ident">model_b</span><span class="op">|</span> {
@@ -774,6 +940,89 @@
     });
 }
 
+<span class="doccomment">/// If we have to map the enum values, this makes sure we handle them</span>
+<span class="doccomment">/// in the default attributes correctly.</span>
+<span class="kw">fn</span> <span class="ident">merge_changed_enum_defaults</span>(
+    <span class="ident">old_data_model</span>: <span class="kw-2">&amp;</span><span class="ident">Datamodel</span>,
+    <span class="ident">new_data_model</span>: <span class="kw-2">&amp;mut</span> <span class="ident">Datamodel</span>,
+    <span class="ident">warnings</span>: <span class="kw-2">&amp;mut</span> <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">Warning</span><span class="op">&gt;</span>,
+) {
+    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">changes</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">ModelFieldAndValue</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">Vec::new</span>();
+
+    <span class="kw">for</span> <span class="ident">old_model</span> <span class="kw">in</span> <span class="ident">old_data_model</span>.<span class="ident">models</span>() {
+        <span class="kw">let</span> <span class="ident">new_model</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">new_data_model</span>.<span class="ident">models</span>().<span class="ident">find</span>(<span class="op">|</span><span class="ident">m</span><span class="op">|</span> <span class="ident">m</span>.<span class="ident">name</span> <span class="op">==</span> <span class="kw-2">*</span><span class="ident">old_model</span>.<span class="ident">name</span>()) {
+            <span class="prelude-val">Some</span>(<span class="ident">m</span>) =&gt; <span class="ident">m</span>,
+            <span class="prelude-val">None</span> =&gt; <span class="kw">continue</span>,
+        };
+
+        <span class="comment">// Mike</span>
+        <span class="kw">for</span> <span class="ident">old_field</span> <span class="kw">in</span> <span class="ident">old_model</span>.<span class="ident">scalar_fields</span>() {
+            <span class="kw">let</span> <span class="ident">new_field</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">new_model</span>.<span class="ident">scalar_fields</span>().<span class="ident">find</span>(<span class="op">|</span><span class="ident">f</span><span class="op">|</span> <span class="ident">f</span>.<span class="ident">name</span> <span class="op">==</span> <span class="kw-2">*</span><span class="ident">old_field</span>.<span class="ident">name</span>()) {
+                <span class="prelude-val">Some</span>(<span class="ident">f</span>) =&gt; <span class="ident">f</span>,
+                <span class="prelude-val">None</span> =&gt; <span class="kw">continue</span>,
+            };
+
+            <span class="kw">let</span> <span class="ident">r#enum</span> <span class="op">=</span> <span class="kw">match</span> (<span class="kw-2">&amp;</span><span class="ident">old_field</span>.<span class="ident">field_type</span>, <span class="kw-2">&amp;</span><span class="ident">new_field</span>.<span class="ident">field_type</span>) {
+                (<span class="ident">FieldType::Enum</span>(<span class="ident">left</span>), <span class="ident">FieldType::Enum</span>(<span class="ident">right</span>)) <span class="kw">if</span> <span class="ident">left</span> <span class="op">==</span> <span class="ident">right</span> =&gt; {
+                    <span class="ident">new_data_model</span>.<span class="ident">enums</span>().<span class="ident">find</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> <span class="ident">e</span>.<span class="ident">name</span>() <span class="op">==</span> <span class="ident">right</span>).<span class="ident">unwrap</span>()
+                }
+                <span class="kw">_</span> =&gt; <span class="kw">continue</span>,
+            };
+
+            <span class="kw">match</span> (
+                <span class="ident">old_field</span>.<span class="ident">default_value</span>.<span class="ident">as_ref</span>().<span class="ident">and_then</span>(<span class="op">|</span><span class="ident">v</span><span class="op">|</span> <span class="ident">v</span>.<span class="ident">as_single</span>()),
+                <span class="ident">new_field</span>.<span class="ident">default_value</span>.<span class="ident">as_ref</span>().<span class="ident">and_then</span>(<span class="op">|</span><span class="ident">v</span><span class="op">|</span> <span class="ident">v</span>.<span class="ident">as_expression</span>()),
+            ) {
+                <span class="comment">// The right side is now considered as dbgenerated due</span>
+                <span class="comment">// to us not being able to generate a valid name to</span>
+                <span class="comment">// it.</span>
+                <span class="comment">//</span>
+                <span class="comment">// The user has renamed these already as the left side</span>
+                <span class="comment">// is a single value, so we&#39;ll map it to the now model</span>
+                <span class="comment">// accordingly.</span>
+                (<span class="prelude-val">Some</span>(<span class="kw">_</span>), <span class="prelude-val">Some</span>(<span class="ident">generator</span>)) <span class="kw">if</span> <span class="ident">generator</span>.<span class="ident">name</span>() <span class="op">==</span> <span class="string">&quot;dbgenerated&quot;</span> =&gt; {
+                    <span class="kw">let</span> <span class="ident">val</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">generator</span>.<span class="ident">args</span>().<span class="ident">first</span>().<span class="ident">and_then</span>(<span class="op">|</span>(<span class="kw">_</span>, <span class="ident">v</span>)<span class="op">|</span> <span class="ident">v</span>.<span class="ident">as_string</span>()) {
+                        <span class="prelude-val">Some</span>(<span class="ident">val</span>) =&gt; <span class="ident">val</span>,
+                        <span class="prelude-val">None</span> =&gt; <span class="kw">continue</span>,
+                    };
+
+                    <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">val</span>) <span class="op">=</span> <span class="ident">r#enum</span>.<span class="ident">find_value_db_name</span>(<span class="ident">val</span>) {
+                        <span class="ident">changes</span>.<span class="ident">push</span>(<span class="ident">ModelFieldAndValue::new</span>(<span class="ident">new_model</span>.<span class="ident">name</span>(), <span class="ident">new_field</span>.<span class="ident">name</span>(), <span class="kw-2">&amp;</span><span class="ident">val</span>.<span class="ident">name</span>));
+                    }
+                }
+                <span class="kw">_</span> =&gt; <span class="kw">continue</span>,
+            }
+        }
+    }
+
+    <span class="kw">for</span> <span class="ident">change</span> <span class="kw">in</span> <span class="ident">changes</span>.<span class="ident">iter</span>() {
+        <span class="kw">let</span> <span class="ident">model</span> <span class="op">=</span> <span class="ident">new_data_model</span>.<span class="ident">find_model_mut</span>(<span class="kw-2">&amp;</span><span class="ident">change</span>.<span class="ident">model</span>);
+        <span class="kw">let</span> <span class="ident">field</span> <span class="op">=</span> <span class="ident">model</span>.<span class="ident">find_scalar_field_mut</span>(<span class="kw-2">&amp;</span><span class="ident">change</span>.<span class="ident">field</span>);
+
+        <span class="ident">field</span>.<span class="ident">set_default_value</span>(<span class="ident">DefaultValue::new_single</span>(<span class="ident">PrismaValue::Enum</span>(<span class="ident">change</span>.<span class="ident">value</span>.<span class="ident">clone</span>())));
+    }
+
+    <span class="kw">if</span> <span class="op">!</span><span class="ident">changes</span>.<span class="ident">is_empty</span>() {
+        <span class="ident">warnings</span>.<span class="ident">push</span>(<span class="ident">warning_enum_defaults_added_from_the_previous_data_model</span>(<span class="kw-2">&amp;</span><span class="ident">changes</span>));
+    }
+}
+
+<span class="kw">fn</span> <span class="ident">keep_index_ordering</span>(<span class="ident">old_data_model</span>: <span class="kw-2">&amp;</span><span class="ident">Datamodel</span>, <span class="ident">new_data_model</span>: <span class="kw-2">&amp;mut</span> <span class="ident">Datamodel</span>) {
+    <span class="kw">for</span> <span class="ident">old_model</span> <span class="kw">in</span> <span class="ident">old_data_model</span>.<span class="ident">models</span>() {
+        <span class="kw">let</span> <span class="ident">new_model</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">new_data_model</span>.<span class="ident">models_mut</span>().<span class="ident">find</span>(<span class="op">|</span><span class="ident">m</span><span class="op">|</span> <span class="ident">m</span>.<span class="ident">name</span> <span class="op">==</span> <span class="kw-2">*</span><span class="ident">old_model</span>.<span class="ident">name</span>()) {
+            <span class="prelude-val">Some</span>(<span class="ident">m</span>) =&gt; <span class="ident">m</span>,
+            <span class="prelude-val">None</span> =&gt; <span class="kw">continue</span>,
+        };
+
+        <span class="ident">new_model</span>.<span class="ident">indices</span>.<span class="ident">sort_by</span>(<span class="op">|</span><span class="ident">idx_a</span>, <span class="ident">idx_b</span><span class="op">|</span> {
+            <span class="kw">let</span> <span class="ident">idx_a_idx</span> <span class="op">=</span> <span class="ident">old_model</span>.<span class="ident">indices</span>.<span class="ident">iter</span>().<span class="ident">position</span>(<span class="op">|</span><span class="ident">idx</span><span class="op">|</span> <span class="ident">idx</span>.<span class="ident">db_name</span> <span class="op">==</span> <span class="ident">idx_a</span>.<span class="ident">db_name</span>);
+            <span class="kw">let</span> <span class="ident">idx_b_idx</span> <span class="op">=</span> <span class="ident">old_model</span>.<span class="ident">indices</span>.<span class="ident">iter</span>().<span class="ident">position</span>(<span class="op">|</span><span class="ident">idx</span><span class="op">|</span> <span class="ident">idx</span>.<span class="ident">db_name</span> <span class="op">==</span> <span class="ident">idx_b</span>.<span class="ident">db_name</span>);
+
+            <span class="ident">re_order_putting_new_ones_last</span>(<span class="ident">idx_a_idx</span>, <span class="ident">idx_b_idx</span>)
+        });
+    }
+}
+
 <span class="kw">fn</span> <span class="ident">re_order_putting_new_ones_last</span>(<span class="ident">enum_a_idx</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">usize</span><span class="op">&gt;</span>, <span class="ident">enum_b_idx</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">usize</span><span class="op">&gt;</span>) -&gt; <span class="ident">Ordering</span> {
     <span class="kw">match</span> (<span class="ident">enum_a_idx</span>, <span class="ident">enum_b_idx</span>) {
         (<span class="prelude-val">None</span>, <span class="prelude-val">None</span>) =&gt; <span class="ident">Equal</span>,
@@ -786,7 +1035,7 @@
 <span class="comment">// Copies `@relation` attributes from the data model to the introspected</span>
 <span class="comment">// version. Needed, when the database does not support foreign key constraints,</span>
 <span class="comment">// but we still want to keep them in the PSL.</span>
-<span class="kw">fn</span> <span class="ident">merge_relation_fields</span>(<span class="ident">old_data_model</span>: <span class="kw-2">&amp;</span><span class="ident">Datamodel</span>, <span class="ident">new_data_model</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Datamodel</span>, <span class="ident">warnings</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">Warning</span><span class="op">&gt;</span>) {
+<span class="kw">fn</span> <span class="ident">merge_relation_fields</span>(<span class="ident">old_data_model</span>: <span class="kw-2">&amp;</span><span class="ident">Datamodel</span>, <span class="ident">new_data_model</span>: <span class="kw-2">&amp;mut</span> <span class="ident">Datamodel</span>, <span class="ident">warnings</span>: <span class="kw-2">&amp;mut</span> <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">Warning</span><span class="op">&gt;</span>) {
     <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">changed_models</span> <span class="op">=</span> <span class="ident">BTreeSet::new</span>();
 
     <span class="kw">for</span> <span class="ident">old_model</span> <span class="kw">in</span> <span class="ident">old_data_model</span>.<span class="ident">models</span>() {
@@ -840,8 +1089,8 @@
 <span class="comment">//@@map on models</span>
 <span class="kw">fn</span> <span class="ident">merge_map_attributes_on_models</span>(
     <span class="ident">old_data_model</span>: <span class="kw-2">&amp;</span><span class="ident">Datamodel</span>,
-    <span class="ident">new_data_model</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Datamodel</span>,
-    <span class="ident">warnings</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">Warning</span><span class="op">&gt;</span>,
+    <span class="ident">new_data_model</span>: <span class="kw-2">&amp;mut</span> <span class="ident">Datamodel</span>,
+    <span class="ident">warnings</span>: <span class="kw-2">&amp;mut</span> <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">Warning</span><span class="op">&gt;</span>,
 ) {
     <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">changed_model_names</span> <span class="op">=</span> <span class="macro">vec!</span>[];
 
@@ -880,7 +1129,7 @@
 }
 
 <span class="comment">//custom compound index `name` from pre-3.0 datamodels</span>
-<span class="kw">fn</span> <span class="ident">merge_pre_3_0_index_names</span>(<span class="ident">old_data_model</span>: <span class="kw-2">&amp;</span><span class="ident">Datamodel</span>, <span class="ident">new_data_model</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Datamodel</span>, <span class="ident">warnings</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">Warning</span><span class="op">&gt;</span>) {
+<span class="kw">fn</span> <span class="ident">merge_pre_3_0_index_names</span>(<span class="ident">old_data_model</span>: <span class="kw-2">&amp;</span><span class="ident">Datamodel</span>, <span class="ident">new_data_model</span>: <span class="kw-2">&amp;mut</span> <span class="ident">Datamodel</span>, <span class="ident">warnings</span>: <span class="kw-2">&amp;mut</span> <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">Warning</span><span class="op">&gt;</span>) {
     <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">retained_legacy_index_name_args</span> <span class="op">=</span> <span class="macro">vec!</span>[];
 
     <span class="kw">for</span> <span class="ident">model</span> <span class="kw">in</span> <span class="ident">new_data_model</span>.<span class="ident">models</span>() {
@@ -888,8 +1137,16 @@
             <span class="kw">for</span> <span class="ident">index</span> <span class="kw">in</span> <span class="kw-2">&amp;</span><span class="ident">model</span>.<span class="ident">indices</span> {
                 <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">old_index</span>) <span class="op">=</span> <span class="ident">old_model</span>.<span class="ident">indices</span>.<span class="ident">iter</span>().<span class="ident">find</span>(<span class="op">|</span><span class="ident">old</span><span class="op">|</span> {
                     <span class="ident">old</span>.<span class="ident">name</span> <span class="op">==</span> <span class="ident">index</span>.<span class="ident">db_name</span>
-                        <span class="op">&amp;&amp;</span> <span class="ident">old</span>.<span class="ident">fields</span>.<span class="ident">iter</span>().<span class="ident">map</span>(<span class="op">|</span><span class="ident">f</span><span class="op">|</span> <span class="kw-2">&amp;</span><span class="ident">f</span>.<span class="ident">name</span>).<span class="ident">collect</span>::<span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="kw">_</span><span class="op">&gt;</span><span class="op">&gt;</span>()
-                            <span class="op">==</span> <span class="ident">index</span>.<span class="ident">fields</span>.<span class="ident">iter</span>().<span class="ident">map</span>(<span class="op">|</span><span class="ident">f</span><span class="op">|</span> <span class="kw-2">&amp;</span><span class="ident">f</span>.<span class="ident">name</span>).<span class="ident">collect</span>::<span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="kw">_</span><span class="op">&gt;</span><span class="op">&gt;</span>()
+                        <span class="op">&amp;&amp;</span> <span class="ident">old</span>
+                            .<span class="ident">fields</span>
+                            .<span class="ident">iter</span>()
+                            .<span class="ident">map</span>(<span class="op">|</span><span class="ident">f</span><span class="op">|</span> <span class="kw-2">&amp;</span><span class="ident">f</span>.<span class="ident">path</span>.<span class="ident">first</span>().<span class="ident">unwrap</span>().<span class="number">0</span>)
+                            .<span class="ident">collect</span>::<span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="kw">_</span><span class="op">&gt;</span><span class="op">&gt;</span>()
+                            <span class="op">==</span> <span class="ident">index</span>
+                                .<span class="ident">fields</span>
+                                .<span class="ident">iter</span>()
+                                .<span class="ident">map</span>(<span class="op">|</span><span class="ident">f</span><span class="op">|</span> <span class="kw-2">&amp;</span><span class="ident">f</span>.<span class="ident">path</span>.<span class="ident">first</span>().<span class="ident">unwrap</span>().<span class="number">0</span>)
+                                .<span class="ident">collect</span>::<span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="kw">_</span><span class="op">&gt;</span><span class="op">&gt;</span>()
                 }) {
                     <span class="ident">retained_legacy_index_name_args</span>
                         .<span class="ident">push</span>(<span class="ident">ModelAndIndex::new</span>(<span class="kw-2">&amp;</span><span class="ident">model</span>.<span class="ident">name</span>, <span class="ident">old_index</span>.<span class="ident">name</span>.<span class="ident">as_ref</span>().<span class="ident">unwrap</span>()))
@@ -916,7 +1173,7 @@
 }
 
 <span class="comment">//custom index names</span>
-<span class="kw">fn</span> <span class="ident">merge_custom_index_names</span>(<span class="ident">old_data_model</span>: <span class="kw-2">&amp;</span><span class="ident">Datamodel</span>, <span class="ident">new_data_model</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Datamodel</span>, <span class="ident">warnings</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">Warning</span><span class="op">&gt;</span>) {
+<span class="kw">fn</span> <span class="ident">merge_custom_index_names</span>(<span class="ident">old_data_model</span>: <span class="kw-2">&amp;</span><span class="ident">Datamodel</span>, <span class="ident">new_data_model</span>: <span class="kw-2">&amp;mut</span> <span class="ident">Datamodel</span>, <span class="ident">warnings</span>: <span class="kw-2">&amp;mut</span> <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">Warning</span><span class="op">&gt;</span>) {
     <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">changed_index_names</span> <span class="op">=</span> <span class="macro">vec!</span>[];
 
     <span class="kw">for</span> <span class="ident">model</span> <span class="kw">in</span> <span class="ident">new_data_model</span>.<span class="ident">models</span>() {
@@ -952,8 +1209,8 @@
 <span class="comment">//custom primary key names</span>
 <span class="kw">fn</span> <span class="ident">merge_changed_primary_key_names</span>(
     <span class="ident">old_data_model</span>: <span class="kw-2">&amp;</span><span class="ident">Datamodel</span>,
-    <span class="ident">new_data_model</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Datamodel</span>,
-    <span class="ident">warnings</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">Warning</span><span class="op">&gt;</span>,
+    <span class="ident">new_data_model</span>: <span class="kw-2">&amp;mut</span> <span class="ident">Datamodel</span>,
+    <span class="ident">warnings</span>: <span class="kw-2">&amp;mut</span> <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">Warning</span><span class="op">&gt;</span>,
 ) {
     <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">changed_primary_key_names</span> <span class="op">=</span> <span class="macro">vec!</span>[];
 
@@ -996,22 +1253,27 @@
 <span class="comment">// @map on fields</span>
 <span class="kw">fn</span> <span class="ident">merge_changed_scalar_key_names</span>(
     <span class="ident">old_data_model</span>: <span class="kw-2">&amp;</span><span class="ident">Datamodel</span>,
-    <span class="ident">new_data_model</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Datamodel</span>,
-    <span class="ident">warnings</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">Warning</span><span class="op">&gt;</span>,
+    <span class="ident">new_data_model</span>: <span class="kw-2">&amp;mut</span> <span class="ident">Datamodel</span>,
+    <span class="ident">warnings</span>: <span class="kw-2">&amp;mut</span> <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">Warning</span><span class="op">&gt;</span>,
 ) {
     <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">changed_scalar_field_names</span> <span class="op">=</span> <span class="macro">vec!</span>[];
 
     <span class="kw">for</span> <span class="ident">model</span> <span class="kw">in</span> <span class="ident">new_data_model</span>.<span class="ident">models</span>() {
-        <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">old_model</span>) <span class="op">=</span> <span class="kw-2">&amp;</span><span class="ident">old_data_model</span>.<span class="ident">find_model</span>(<span class="kw-2">&amp;</span><span class="ident">model</span>.<span class="ident">name</span>) {
-            <span class="kw">for</span> <span class="ident">field</span> <span class="kw">in</span> <span class="ident">model</span>.<span class="ident">scalar_fields</span>() {
-                <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">old_field</span>) <span class="op">=</span>
-                    <span class="ident">old_model</span>.<span class="ident">find_scalar_field_db_name</span>(<span class="ident">field</span>.<span class="ident">database_name</span>.<span class="ident">as_ref</span>().<span class="ident">unwrap_or</span>(<span class="kw-2">&amp;</span><span class="ident">field</span>.<span class="ident">name</span>))
-                {
-                    <span class="kw">if</span> <span class="ident">model</span>.<span class="ident">find_scalar_field</span>(<span class="kw-2">&amp;</span><span class="ident">old_field</span>.<span class="ident">name</span>).<span class="ident">is_none</span>() {
-                        <span class="kw">let</span> <span class="ident">mf</span> <span class="op">=</span> <span class="ident">ModelAndField::new</span>(<span class="kw-2">&amp;</span><span class="ident">model</span>.<span class="ident">name</span>, <span class="kw-2">&amp;</span><span class="ident">field</span>.<span class="ident">name</span>);
-                        <span class="ident">changed_scalar_field_names</span>.<span class="ident">push</span>((<span class="ident">mf</span>, <span class="ident">old_field</span>.<span class="ident">name</span>.<span class="ident">clone</span>()))
-                    }
-                }
+        <span class="kw">let</span> <span class="ident">old_model</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">old_data_model</span>.<span class="ident">find_model</span>(<span class="kw-2">&amp;</span><span class="ident">model</span>.<span class="ident">name</span>) {
+            <span class="prelude-val">Some</span>(<span class="ident">old_model</span>) =&gt; <span class="ident">old_model</span>,
+            <span class="prelude-val">None</span> =&gt; <span class="kw">continue</span>,
+        };
+
+        <span class="kw">for</span> <span class="ident">field</span> <span class="kw">in</span> <span class="ident">model</span>.<span class="ident">scalar_fields</span>() {
+            <span class="kw">let</span> <span class="ident">old_field</span> <span class="op">=</span>
+                <span class="kw">match</span> <span class="ident">old_model</span>.<span class="ident">find_scalar_field_db_name</span>(<span class="ident">field</span>.<span class="ident">database_name</span>.<span class="ident">as_ref</span>().<span class="ident">unwrap_or</span>(<span class="kw-2">&amp;</span><span class="ident">field</span>.<span class="ident">name</span>)) {
+                    <span class="prelude-val">Some</span>(<span class="ident">old_field</span>) =&gt; <span class="ident">old_field</span>,
+                    <span class="prelude-val">None</span> =&gt; <span class="kw">continue</span>,
+                };
+
+            <span class="kw">if</span> <span class="ident">model</span>.<span class="ident">find_scalar_field</span>(<span class="kw-2">&amp;</span><span class="ident">old_field</span>.<span class="ident">name</span>).<span class="ident">is_none</span>() {
+                <span class="kw">let</span> <span class="ident">mf</span> <span class="op">=</span> <span class="ident">ModelAndField::new</span>(<span class="kw-2">&amp;</span><span class="ident">model</span>.<span class="ident">name</span>, <span class="kw-2">&amp;</span><span class="ident">field</span>.<span class="ident">name</span>);
+                <span class="ident">changed_scalar_field_names</span>.<span class="ident">push</span>((<span class="ident">mf</span>, <span class="ident">old_field</span>.<span class="ident">name</span>.<span class="ident">clone</span>()))
             }
         }
     }
@@ -1029,16 +1291,17 @@
     <span class="kw">for</span> <span class="ident">changed_field_name</span> <span class="kw">in</span> <span class="kw-2">&amp;</span><span class="ident">changed_scalar_field_names</span> {
         <span class="kw">let</span> <span class="ident">model</span> <span class="op">=</span> <span class="ident">new_data_model</span>.<span class="ident">find_model_mut</span>(<span class="kw-2">&amp;</span><span class="ident">changed_field_name</span>.<span class="number">0</span>.<span class="ident">model</span>);
 
-        <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">pk</span>) <span class="op">=</span> <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">model</span>.<span class="ident">primary_key</span> {
-            <span class="ident">replace_pk_field_names</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">pk</span>.<span class="ident">fields</span>, <span class="kw-2">&amp;</span><span class="ident">changed_field_name</span>.<span class="number">0</span>.<span class="ident">field</span>, <span class="kw-2">&amp;</span><span class="ident">changed_field_name</span>.<span class="number">1</span>);
+        <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">pk</span>) <span class="op">=</span> <span class="kw-2">&amp;mut</span> <span class="ident">model</span>.<span class="ident">primary_key</span> {
+            <span class="ident">replace_pk_field_names</span>(<span class="kw-2">&amp;mut</span> <span class="ident">pk</span>.<span class="ident">fields</span>, <span class="kw-2">&amp;</span><span class="ident">changed_field_name</span>.<span class="number">0</span>.<span class="ident">field</span>, <span class="kw-2">&amp;</span><span class="ident">changed_field_name</span>.<span class="number">1</span>);
         }
 
-        <span class="kw">for</span> <span class="ident">index</span> <span class="kw">in</span> <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">model</span>.<span class="ident">indices</span> {
-            <span class="ident">replace_index_field_names</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">index</span>.<span class="ident">fields</span>, <span class="kw-2">&amp;</span><span class="ident">changed_field_name</span>.<span class="number">0</span>.<span class="ident">field</span>, <span class="kw-2">&amp;</span><span class="ident">changed_field_name</span>.<span class="number">1</span>);
+        <span class="kw">for</span> <span class="ident">index</span> <span class="kw">in</span> <span class="kw-2">&amp;mut</span> <span class="ident">model</span>.<span class="ident">indices</span> {
+            <span class="ident">replace_index_field_names</span>(<span class="kw-2">&amp;mut</span> <span class="ident">index</span>.<span class="ident">fields</span>, <span class="kw-2">&amp;</span><span class="ident">changed_field_name</span>.<span class="number">0</span>.<span class="ident">field</span>, <span class="kw-2">&amp;</span><span class="ident">changed_field_name</span>.<span class="number">1</span>);
         }
+
         <span class="kw">for</span> <span class="ident">field</span> <span class="kw">in</span> <span class="ident">model</span>.<span class="ident">relation_fields_mut</span>() {
             <span class="ident">replace_relation_info_field_names</span>(
-                <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">field</span>.<span class="ident">relation_info</span>.<span class="ident">fields</span>,
+                <span class="kw-2">&amp;mut</span> <span class="ident">field</span>.<span class="ident">relation_info</span>.<span class="ident">fields</span>,
                 <span class="kw-2">&amp;</span><span class="ident">changed_field_name</span>.<span class="number">0</span>.<span class="ident">field</span>,
                 <span class="kw-2">&amp;</span><span class="ident">changed_field_name</span>.<span class="number">1</span>,
             );
@@ -1048,10 +1311,12 @@
     <span class="comment">// change RelationInfo.references</span>
     <span class="kw">for</span> <span class="ident">changed_field_name</span> <span class="kw">in</span> <span class="kw-2">&amp;</span><span class="ident">changed_scalar_field_names</span> {
         <span class="kw">let</span> <span class="ident">fields_to_be_changed</span> <span class="op">=</span> <span class="ident">new_data_model</span>.<span class="ident">find_relation_fields_for_model</span>(<span class="kw-2">&amp;</span><span class="ident">changed_field_name</span>.<span class="number">0</span>.<span class="ident">model</span>);
+
         <span class="kw">for</span> <span class="ident">f</span> <span class="kw">in</span> <span class="ident">fields_to_be_changed</span> {
             <span class="kw">let</span> <span class="ident">field</span> <span class="op">=</span> <span class="ident">new_data_model</span>.<span class="ident">find_relation_field_mut</span>(<span class="kw-2">&amp;</span><span class="ident">f</span>.<span class="number">0</span>, <span class="kw-2">&amp;</span><span class="ident">f</span>.<span class="number">1</span>);
+
             <span class="ident">replace_relation_info_field_names</span>(
-                <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">field</span>.<span class="ident">relation_info</span>.<span class="ident">references</span>,
+                <span class="kw-2">&amp;mut</span> <span class="ident">field</span>.<span class="ident">relation_info</span>.<span class="ident">references</span>,
                 <span class="kw-2">&amp;</span><span class="ident">changed_field_name</span>.<span class="number">0</span>.<span class="ident">field</span>,
                 <span class="kw-2">&amp;</span><span class="ident">changed_field_name</span>.<span class="number">1</span>,
             );
@@ -1068,34 +1333,37 @@
 }
 
 <span class="comment">//always keep old virtual relationfield names</span>
-<span class="kw">fn</span> <span class="ident">merge_changed_relation_field_names</span>(<span class="ident">old_data_model</span>: <span class="kw-2">&amp;</span><span class="ident">Datamodel</span>, <span class="ident">new_data_model</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Datamodel</span>) {
+<span class="kw">fn</span> <span class="ident">merge_changed_relation_field_names</span>(<span class="ident">old_data_model</span>: <span class="kw-2">&amp;</span><span class="ident">Datamodel</span>, <span class="ident">new_data_model</span>: <span class="kw-2">&amp;mut</span> <span class="ident">Datamodel</span>) {
     <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">changed_relation_field_names</span> <span class="op">=</span> <span class="macro">vec!</span>[];
 
     <span class="kw">for</span> <span class="ident">new_model</span> <span class="kw">in</span> <span class="ident">new_data_model</span>.<span class="ident">models</span>() {
+        <span class="kw">let</span> <span class="ident">old_model</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">old_data_model</span>.<span class="ident">find_model</span>(<span class="kw-2">&amp;</span><span class="ident">new_model</span>.<span class="ident">name</span>) {
+            <span class="prelude-val">Some</span>(<span class="ident">old_model</span>) =&gt; <span class="ident">old_model</span>,
+            <span class="prelude-val">None</span> =&gt; <span class="kw">continue</span>,
+        };
+
         <span class="kw">for</span> <span class="ident">new_field</span> <span class="kw">in</span> <span class="ident">new_model</span>.<span class="ident">relation_fields</span>() {
-            <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">old_model</span>) <span class="op">=</span> <span class="ident">old_data_model</span>.<span class="ident">find_model</span>(<span class="kw-2">&amp;</span><span class="ident">new_model</span>.<span class="ident">name</span>) {
-                <span class="kw">for</span> <span class="ident">old_field</span> <span class="kw">in</span> <span class="ident">old_model</span>.<span class="ident">relation_fields</span>() {
-                    <span class="kw">let</span> (<span class="kw">_</span>, <span class="ident">old_related_field</span>) <span class="op">=</span> <span class="kw-2">&amp;</span><span class="ident">old_data_model</span>.<span class="ident">find_related_field_bang</span>(<span class="ident">old_field</span>);
-                    <span class="kw">let</span> <span class="ident">is_many_to_many</span> <span class="op">=</span> <span class="ident">old_field</span>.<span class="ident">is_list</span>() <span class="op">&amp;&amp;</span> <span class="ident">old_related_field</span>.<span class="ident">is_list</span>();
-                    <span class="kw">let</span> <span class="ident">is_self_relation</span> <span class="op">=</span> <span class="ident">old_field</span>.<span class="ident">relation_info</span>.<span class="ident">to</span> <span class="op">==</span> <span class="ident">old_related_field</span>.<span class="ident">relation_info</span>.<span class="ident">to</span>;
+            <span class="kw">for</span> <span class="ident">old_field</span> <span class="kw">in</span> <span class="ident">old_model</span>.<span class="ident">relation_fields</span>() {
+                <span class="kw">let</span> (<span class="kw">_</span>, <span class="ident">old_related_field</span>) <span class="op">=</span> <span class="kw-2">&amp;</span><span class="ident">old_data_model</span>.<span class="ident">find_related_field_bang</span>(<span class="ident">old_field</span>);
+                <span class="kw">let</span> <span class="ident">is_many_to_many</span> <span class="op">=</span> <span class="ident">old_field</span>.<span class="ident">is_list</span>() <span class="op">&amp;&amp;</span> <span class="ident">old_related_field</span>.<span class="ident">is_list</span>();
+                <span class="kw">let</span> <span class="ident">is_self_relation</span> <span class="op">=</span> <span class="ident">old_field</span>.<span class="ident">relation_info</span>.<span class="ident">to</span> <span class="op">==</span> <span class="ident">old_related_field</span>.<span class="ident">relation_info</span>.<span class="ident">to</span>;
 
-                    <span class="kw">let</span> (<span class="kw">_</span>, <span class="ident">related_field</span>) <span class="op">=</span> <span class="kw-2">&amp;</span><span class="ident">new_data_model</span>.<span class="ident">find_related_field_bang</span>(<span class="ident">new_field</span>);
+                <span class="kw">let</span> (<span class="kw">_</span>, <span class="ident">related_field</span>) <span class="op">=</span> <span class="kw-2">&amp;</span><span class="ident">new_data_model</span>.<span class="ident">find_related_field_bang</span>(<span class="ident">new_field</span>);
 
-                    <span class="comment">//the relationinfos of both sides need to be compared since the relationinfo of the</span>
-                    <span class="comment">// non-fk side does not contain enough information to uniquely identify the correct relationfield</span>
-                    <span class="kw">let</span> <span class="ident">relation_info_partial_eq</span> <span class="op">=</span> <span class="ident">old_field</span>.<span class="ident">relation_info</span> <span class="op">==</span> <span class="ident">new_field</span>.<span class="ident">relation_info</span>
-                        <span class="op">&amp;&amp;</span> <span class="ident">old_related_field</span>.<span class="ident">relation_info</span> <span class="op">==</span> <span class="ident">related_field</span>.<span class="ident">relation_info</span>;
+                <span class="comment">//the relationinfos of both sides need to be compared since the relationinfo of the</span>
+                <span class="comment">// non-fk side does not contain enough information to uniquely identify the correct relationfield</span>
+                <span class="kw">let</span> <span class="ident">relation_info_partial_eq</span> <span class="op">=</span> <span class="ident">old_field</span>.<span class="ident">relation_info</span> <span class="op">==</span> <span class="ident">new_field</span>.<span class="ident">relation_info</span>
+                    <span class="op">&amp;&amp;</span> <span class="ident">old_related_field</span>.<span class="ident">relation_info</span> <span class="op">==</span> <span class="ident">related_field</span>.<span class="ident">relation_info</span>;
 
-                    <span class="kw">let</span> <span class="ident">mf</span> <span class="op">=</span> <span class="ident">ModelAndField::new</span>(<span class="kw-2">&amp;</span><span class="ident">new_model</span>.<span class="ident">name</span>, <span class="kw-2">&amp;</span><span class="ident">new_field</span>.<span class="ident">name</span>);
+                <span class="kw">let</span> <span class="ident">mf</span> <span class="op">=</span> <span class="ident">ModelAndField::new</span>(<span class="kw-2">&amp;</span><span class="ident">new_model</span>.<span class="ident">name</span>, <span class="kw-2">&amp;</span><span class="ident">new_field</span>.<span class="ident">name</span>);
 
-                    <span class="kw">if</span> <span class="ident">relation_info_partial_eq</span>
-                        <span class="op">&amp;&amp;</span> (<span class="op">!</span><span class="ident">is_many_to_many</span>
+                <span class="kw">if</span> <span class="ident">relation_info_partial_eq</span>
+                    <span class="op">&amp;&amp;</span> (<span class="op">!</span><span class="ident">is_many_to_many</span>
                                 <span class="comment">//For many to many the relation infos always look the same, here we have to look at the relation name,</span>
                                 <span class="comment">//which translates to the join table name. But in case of self relations we cannot correctly infer the old name</span>
                                 <span class="op">|</span><span class="op">|</span> (<span class="ident">old_field</span>.<span class="ident">relation_info</span>.<span class="ident">name</span> <span class="op">==</span> <span class="ident">new_field</span>.<span class="ident">relation_info</span>.<span class="ident">name</span> <span class="op">&amp;&amp;</span> <span class="op">!</span><span class="ident">is_self_relation</span>))
-                    {
-                        <span class="ident">changed_relation_field_names</span>.<span class="ident">push</span>((<span class="ident">mf</span>.<span class="ident">clone</span>(), <span class="ident">old_field</span>.<span class="ident">name</span>.<span class="ident">clone</span>()));
-                    }
+                {
+                    <span class="ident">changed_relation_field_names</span>.<span class="ident">push</span>((<span class="ident">mf</span>.<span class="ident">clone</span>(), <span class="ident">old_field</span>.<span class="ident">name</span>.<span class="ident">clone</span>()));
                 }
             }
         }
@@ -1114,28 +1382,34 @@
 <span class="comment">//keep old virtual relation names on non M:N relations</span>
 <span class="comment">// M:N relations cannot be uniquely identified without ignoring the relationname and their relationnames cant</span>
 <span class="comment">// be changed without necessitation db changes since RelationName -&gt; Join table name</span>
-<span class="kw">fn</span> <span class="ident">merge_changed_relation_names</span>(<span class="ident">old_data_model</span>: <span class="kw-2">&amp;</span><span class="ident">Datamodel</span>, <span class="ident">new_data_model</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Datamodel</span>) {
+<span class="kw">fn</span> <span class="ident">merge_changed_relation_names</span>(<span class="ident">old_data_model</span>: <span class="kw-2">&amp;</span><span class="ident">Datamodel</span>, <span class="ident">new_data_model</span>: <span class="kw-2">&amp;mut</span> <span class="ident">Datamodel</span>) {
     <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">changed_relation_names</span> <span class="op">=</span> <span class="macro">vec!</span>[];
 
     <span class="kw">for</span> <span class="ident">model</span> <span class="kw">in</span> <span class="ident">new_data_model</span>.<span class="ident">models</span>() {
+        <span class="kw">let</span> <span class="ident">old_model</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">old_data_model</span>.<span class="ident">find_model</span>(<span class="ident">model</span>.<span class="ident">name</span>()) {
+            <span class="prelude-val">Some</span>(<span class="ident">old_model</span>) =&gt; <span class="ident">old_model</span>,
+            <span class="prelude-val">None</span> =&gt; <span class="kw">continue</span>,
+        };
+
         <span class="kw">for</span> <span class="ident">field</span> <span class="kw">in</span> <span class="ident">model</span>.<span class="ident">relation_fields</span>() {
-            <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">old_model</span>) <span class="op">=</span> <span class="ident">old_data_model</span>.<span class="ident">find_model</span>(<span class="kw-2">&amp;</span><span class="ident">model</span>.<span class="ident">name</span>) {
-                <span class="kw">for</span> <span class="ident">old_field</span> <span class="kw">in</span> <span class="ident">old_model</span>.<span class="ident">relation_fields</span>() {
-                    <span class="kw">let</span> (<span class="kw">_</span>, <span class="ident">related_field</span>) <span class="op">=</span> <span class="kw-2">&amp;</span><span class="ident">new_data_model</span>.<span class="ident">find_related_field_bang</span>(<span class="ident">field</span>);
-                    <span class="kw">let</span> (<span class="kw">_</span>, <span class="ident">old_related_field</span>) <span class="op">=</span> <span class="kw-2">&amp;</span><span class="ident">old_data_model</span>.<span class="ident">find_related_field_bang</span>(<span class="ident">old_field</span>);
-                    <span class="comment">//the relationinfos of both sides need to be compared since the relationinfo of the</span>
-                    <span class="comment">// non-fk side does not contain enough information to uniquely identify the correct relationfield</span>
+            <span class="kw">let</span> (<span class="kw">_</span>, <span class="ident">related_field</span>) <span class="op">=</span> <span class="kw-2">&amp;</span><span class="ident">new_data_model</span>.<span class="ident">find_related_field_bang</span>(<span class="ident">field</span>);
 
-                    <span class="kw">let</span> <span class="ident">relation_info_partial_eq</span> <span class="op">=</span> <span class="ident">old_field</span>.<span class="ident">relation_info</span> <span class="op">==</span> <span class="ident">field</span>.<span class="ident">relation_info</span>
-                        <span class="op">&amp;&amp;</span> <span class="ident">old_related_field</span>.<span class="ident">relation_info</span> <span class="op">==</span> <span class="ident">related_field</span>.<span class="ident">relation_info</span>;
-                    <span class="kw">let</span> <span class="ident">many_to_many</span> <span class="op">=</span> <span class="ident">old_field</span>.<span class="ident">is_list</span>() <span class="op">&amp;&amp;</span> <span class="ident">old_related_field</span>.<span class="ident">is_list</span>();
+            <span class="kw">for</span> <span class="ident">old_field</span> <span class="kw">in</span> <span class="ident">old_model</span>.<span class="ident">relation_fields</span>() {
+                <span class="kw">let</span> (<span class="kw">_</span>, <span class="ident">old_related_field</span>) <span class="op">=</span> <span class="kw-2">&amp;</span><span class="ident">old_data_model</span>.<span class="ident">find_related_field_bang</span>(<span class="ident">old_field</span>);
 
-                    <span class="kw">if</span> <span class="ident">relation_info_partial_eq</span> <span class="op">&amp;&amp;</span> <span class="op">!</span><span class="ident">many_to_many</span> {
-                        <span class="kw">let</span> <span class="ident">mf</span> <span class="op">=</span> <span class="ident">ModelAndField::new</span>(<span class="kw-2">&amp;</span><span class="ident">model</span>.<span class="ident">name</span>, <span class="kw-2">&amp;</span><span class="ident">field</span>.<span class="ident">name</span>);
-                        <span class="kw">let</span> <span class="ident">other_mf</span> <span class="op">=</span> <span class="ident">ModelAndField::new</span>(<span class="kw-2">&amp;</span><span class="ident">field</span>.<span class="ident">relation_info</span>.<span class="ident">to</span>, <span class="kw-2">&amp;</span><span class="ident">related_field</span>.<span class="ident">name</span>);
-                        <span class="ident">changed_relation_names</span>.<span class="ident">push</span>((<span class="ident">mf</span>, <span class="ident">old_field</span>.<span class="ident">relation_info</span>.<span class="ident">name</span>.<span class="ident">clone</span>()));
-                        <span class="ident">changed_relation_names</span>.<span class="ident">push</span>((<span class="ident">other_mf</span>, <span class="ident">old_field</span>.<span class="ident">relation_info</span>.<span class="ident">name</span>.<span class="ident">clone</span>()))
-                    }
+                <span class="comment">// the relationinfos of both sides need to be compared since the relationinfo of the</span>
+                <span class="comment">// non-fk side does not contain enough information to uniquely identify the correct relationfield</span>
+                <span class="kw">let</span> <span class="ident">relation_info_partial_eq</span> <span class="op">=</span> <span class="ident">old_field</span>.<span class="ident">relation_info</span> <span class="op">==</span> <span class="ident">field</span>.<span class="ident">relation_info</span>
+                    <span class="op">&amp;&amp;</span> <span class="ident">old_related_field</span>.<span class="ident">relation_info</span> <span class="op">==</span> <span class="ident">related_field</span>.<span class="ident">relation_info</span>;
+
+                <span class="kw">let</span> <span class="ident">many_to_many</span> <span class="op">=</span> <span class="ident">old_field</span>.<span class="ident">is_list</span>() <span class="op">&amp;&amp;</span> <span class="ident">old_related_field</span>.<span class="ident">is_list</span>();
+
+                <span class="kw">if</span> <span class="ident">relation_info_partial_eq</span> <span class="op">&amp;&amp;</span> <span class="op">!</span><span class="ident">many_to_many</span> {
+                    <span class="kw">let</span> <span class="ident">mf</span> <span class="op">=</span> <span class="ident">ModelAndField::new</span>(<span class="kw-2">&amp;</span><span class="ident">model</span>.<span class="ident">name</span>, <span class="kw-2">&amp;</span><span class="ident">field</span>.<span class="ident">name</span>);
+                    <span class="kw">let</span> <span class="ident">other_mf</span> <span class="op">=</span> <span class="ident">ModelAndField::new</span>(<span class="kw-2">&amp;</span><span class="ident">field</span>.<span class="ident">relation_info</span>.<span class="ident">to</span>, <span class="kw-2">&amp;</span><span class="ident">related_field</span>.<span class="ident">name</span>);
+
+                    <span class="ident">changed_relation_names</span>.<span class="ident">push</span>((<span class="ident">mf</span>, <span class="ident">old_field</span>.<span class="ident">relation_info</span>.<span class="ident">name</span>.<span class="ident">clone</span>()));
+                    <span class="ident">changed_relation_names</span>.<span class="ident">push</span>((<span class="ident">other_mf</span>, <span class="ident">old_field</span>.<span class="ident">relation_info</span>.<span class="ident">name</span>.<span class="ident">clone</span>()))
                 }
             }
         }
@@ -1150,7 +1424,7 @@
 }
 
 <span class="comment">// @@map on enums</span>
-<span class="kw">fn</span> <span class="ident">merge_changed_enum_names</span>(<span class="ident">old_data_model</span>: <span class="kw-2">&amp;</span><span class="ident">Datamodel</span>, <span class="ident">new_data_model</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Datamodel</span>, <span class="ident">warnings</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">Warning</span><span class="op">&gt;</span>) {
+<span class="kw">fn</span> <span class="ident">merge_changed_enum_names</span>(<span class="ident">old_data_model</span>: <span class="kw-2">&amp;</span><span class="ident">Datamodel</span>, <span class="ident">new_data_model</span>: <span class="kw-2">&amp;mut</span> <span class="ident">Datamodel</span>, <span class="ident">warnings</span>: <span class="kw-2">&amp;mut</span> <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">Warning</span><span class="op">&gt;</span>) {
     <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">changed_enum_names</span> <span class="op">=</span> <span class="macro">vec!</span>[];
 
     <span class="kw">for</span> <span class="ident">enm</span> <span class="kw">in</span> <span class="ident">new_data_model</span>.<span class="ident">enums</span>() {
@@ -1163,6 +1437,7 @@
     <span class="kw">for</span> <span class="ident">changed_enum_name</span> <span class="kw">in</span> <span class="kw-2">&amp;</span><span class="ident">changed_enum_names</span> {
         <span class="kw">let</span> <span class="ident">enm</span> <span class="op">=</span> <span class="ident">new_data_model</span>.<span class="ident">find_enum_mut</span>(<span class="kw-2">&amp;</span><span class="ident">changed_enum_name</span>.<span class="number">0</span>.<span class="ident">enm</span>);
         <span class="ident">enm</span>.<span class="ident">name</span> <span class="op">=</span> <span class="ident">changed_enum_name</span>.<span class="number">1</span>.<span class="ident">clone</span>();
+
         <span class="kw">if</span> <span class="ident">enm</span>.<span class="ident">database_name</span>.<span class="ident">is_none</span>() {
             <span class="ident">enm</span>.<span class="ident">database_name</span> <span class="op">=</span> <span class="prelude-val">Some</span>(<span class="ident">changed_enum_name</span>.<span class="number">0</span>.<span class="ident">enm</span>.<span class="ident">clone</span>());
         }
@@ -1184,28 +1459,35 @@
 }
 
 <span class="comment">// @map on enum values</span>
-<span class="kw">fn</span> <span class="ident">merge_changed_enum_values</span>(<span class="ident">old_data_model</span>: <span class="kw-2">&amp;</span><span class="ident">Datamodel</span>, <span class="ident">new_data_model</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Datamodel</span>, <span class="ident">warnings</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">Warning</span><span class="op">&gt;</span>) {
+<span class="kw">fn</span> <span class="ident">merge_changed_enum_values</span>(<span class="ident">old_data_model</span>: <span class="kw-2">&amp;</span><span class="ident">Datamodel</span>, <span class="ident">new_data_model</span>: <span class="kw-2">&amp;mut</span> <span class="ident">Datamodel</span>, <span class="ident">warnings</span>: <span class="kw-2">&amp;mut</span> <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">Warning</span><span class="op">&gt;</span>) {
     <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">changed_enum_values</span> <span class="op">=</span> <span class="macro">vec!</span>[];
 
     <span class="kw">for</span> <span class="ident">enm</span> <span class="kw">in</span> <span class="ident">new_data_model</span>.<span class="ident">enums</span>() {
-        <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">old_enum</span>) <span class="op">=</span> <span class="ident">old_data_model</span>.<span class="ident">find_enum</span>(<span class="kw-2">&amp;</span><span class="ident">enm</span>.<span class="ident">name</span>) {
-            <span class="kw">for</span> <span class="ident">value</span> <span class="kw">in</span> <span class="ident">enm</span>.<span class="ident">values</span>() {
-                <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">old_value</span>) <span class="op">=</span>
-                    <span class="ident">old_enum</span>.<span class="ident">find_value_db_name</span>(<span class="ident">value</span>.<span class="ident">database_name</span>.<span class="ident">as_ref</span>().<span class="ident">unwrap_or</span>(<span class="kw-2">&amp;</span><span class="ident">value</span>.<span class="ident">name</span>.<span class="ident">to_owned</span>()))
-                {
-                    <span class="kw">if</span> <span class="ident">enm</span>.<span class="ident">find_value</span>(<span class="kw-2">&amp;</span><span class="ident">old_value</span>.<span class="ident">name</span>).<span class="ident">is_none</span>() {
-                        <span class="kw">let</span> <span class="ident">ev</span> <span class="op">=</span> <span class="ident">EnumAndValue::new</span>(<span class="kw-2">&amp;</span><span class="ident">enm</span>.<span class="ident">name</span>, <span class="kw-2">&amp;</span><span class="ident">value</span>.<span class="ident">name</span>);
-                        <span class="ident">changed_enum_values</span>.<span class="ident">push</span>((<span class="ident">ev</span>, <span class="ident">old_value</span>.<span class="ident">name</span>.<span class="ident">clone</span>()))
-                    }
-                }
+        <span class="kw">let</span> <span class="ident">old_enum</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">old_data_model</span>.<span class="ident">find_enum</span>(<span class="kw-2">&amp;</span><span class="ident">enm</span>.<span class="ident">name</span>) {
+            <span class="prelude-val">Some</span>(<span class="ident">old_enum</span>) =&gt; <span class="ident">old_enum</span>,
+            <span class="prelude-val">None</span> =&gt; <span class="kw">continue</span>,
+        };
+
+        <span class="kw">for</span> <span class="ident">value</span> <span class="kw">in</span> <span class="ident">enm</span>.<span class="ident">values</span>() {
+            <span class="kw">let</span> <span class="ident">old_value</span> <span class="op">=</span>
+                <span class="kw">match</span> <span class="ident">old_enum</span>.<span class="ident">find_value_db_name</span>(<span class="ident">value</span>.<span class="ident">database_name</span>.<span class="ident">as_ref</span>().<span class="ident">unwrap_or</span>(<span class="kw-2">&amp;</span><span class="ident">value</span>.<span class="ident">name</span>.<span class="ident">to_owned</span>())) {
+                    <span class="prelude-val">Some</span>(<span class="ident">old_value</span>) =&gt; <span class="ident">old_value</span>,
+                    <span class="prelude-val">None</span> =&gt; <span class="kw">continue</span>,
+                };
+
+            <span class="kw">if</span> <span class="ident">enm</span>.<span class="ident">find_value</span>(<span class="kw-2">&amp;</span><span class="ident">old_value</span>.<span class="ident">name</span>).<span class="ident">is_none</span>() {
+                <span class="kw">let</span> <span class="ident">ev</span> <span class="op">=</span> <span class="ident">EnumAndValue::new</span>(<span class="kw-2">&amp;</span><span class="ident">enm</span>.<span class="ident">name</span>, <span class="kw-2">&amp;</span><span class="ident">value</span>.<span class="ident">name</span>);
+                <span class="ident">changed_enum_values</span>.<span class="ident">push</span>((<span class="ident">ev</span>, <span class="ident">old_value</span>.<span class="ident">name</span>.<span class="ident">clone</span>()))
             }
         }
     }
 
     <span class="kw">for</span> <span class="ident">changed_enum_value</span> <span class="kw">in</span> <span class="kw-2">&amp;</span><span class="ident">changed_enum_values</span> {
         <span class="kw">let</span> <span class="ident">enm</span> <span class="op">=</span> <span class="ident">new_data_model</span>.<span class="ident">find_enum_mut</span>(<span class="kw-2">&amp;</span><span class="ident">changed_enum_value</span>.<span class="number">0</span>.<span class="ident">enm</span>);
+
         <span class="kw">let</span> <span class="ident">value</span> <span class="op">=</span> <span class="ident">enm</span>.<span class="ident">find_value_mut</span>(<span class="kw-2">&amp;</span><span class="ident">changed_enum_value</span>.<span class="number">0</span>.<span class="ident">value</span>);
         <span class="ident">value</span>.<span class="ident">name</span> <span class="op">=</span> <span class="ident">changed_enum_value</span>.<span class="number">1</span>.<span class="ident">clone</span>();
+
         <span class="kw">if</span> <span class="ident">value</span>.<span class="ident">database_name</span>.<span class="ident">is_none</span>() {
             <span class="ident">value</span>.<span class="ident">database_name</span> <span class="op">=</span> <span class="prelude-val">Some</span>(<span class="ident">changed_enum_value</span>.<span class="number">0</span>.<span class="ident">value</span>.<span class="ident">clone</span>());
         }
@@ -1239,31 +1521,46 @@
 }
 
 <span class="comment">//mysql enum names</span>
-<span class="kw">fn</span> <span class="ident">merge_mysql_enum_names</span>(<span class="ident">old_data_model</span>: <span class="kw-2">&amp;</span><span class="ident">Datamodel</span>, <span class="ident">new_data_model</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Datamodel</span>, <span class="ident">ctx</span>: <span class="kw-2">&amp;</span><span class="ident">IntrospectionContext</span>) {
+<span class="kw">fn</span> <span class="ident">merge_mysql_enum_names</span>(<span class="ident">old_data_model</span>: <span class="kw-2">&amp;</span><span class="ident">Datamodel</span>, <span class="ident">new_data_model</span>: <span class="kw-2">&amp;mut</span> <span class="ident">Datamodel</span>, <span class="ident">ctx</span>: <span class="kw-2">&amp;</span><span class="ident">IntrospectionContext</span>) {
     <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">changed_mysql_enum_names</span> <span class="op">=</span> <span class="macro">vec!</span>[];
 
     <span class="kw">if</span> <span class="ident">ctx</span>.<span class="ident">sql_family</span>().<span class="ident">is_mysql</span>() {
         <span class="kw">for</span> <span class="ident">enm</span> <span class="kw">in</span> <span class="ident">new_data_model</span>.<span class="ident">enums</span>() {
-            <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>((<span class="ident">model_name</span>, <span class="ident">field_name</span>)) <span class="op">=</span> <span class="kw-2">&amp;</span><span class="ident">new_data_model</span>.<span class="ident">find_enum_fields</span>(<span class="kw-2">&amp;</span><span class="ident">enm</span>.<span class="ident">name</span>).<span class="ident">first</span>() {
-                <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">old_model</span>) <span class="op">=</span> <span class="ident">old_data_model</span>.<span class="ident">find_model</span>(<span class="ident">model_name</span>) {
-                    <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">old_field</span>) <span class="op">=</span> <span class="ident">old_model</span>.<span class="ident">find_field</span>(<span class="ident">field_name</span>) {
-                        <span class="kw">if</span> <span class="kw">let</span> <span class="ident">FieldType::Enum</span>(<span class="ident">old_enum_name</span>) <span class="op">=</span> <span class="ident">old_field</span>.<span class="ident">field_type</span>() {
-                            <span class="kw">let</span> <span class="ident">old_enum</span> <span class="op">=</span> <span class="ident">old_data_model</span>.<span class="ident">find_enum</span>(<span class="kw-2">&amp;</span><span class="ident">old_enum_name</span>).<span class="ident">unwrap</span>();
-                            <span class="kw">if</span> <span class="ident">enm</span>.<span class="ident">values</span> <span class="op">==</span> <span class="ident">old_enum</span>.<span class="ident">values</span>
-                                <span class="op">&amp;&amp;</span> <span class="ident">old_enum_name</span> <span class="op">!</span><span class="op">=</span> <span class="ident">enm</span>.<span class="ident">name</span>
-                                <span class="op">&amp;&amp;</span> <span class="op">!</span><span class="ident">changed_mysql_enum_names</span>
-                                    .<span class="ident">iter</span>()
-                                    .<span class="ident">any</span>(<span class="op">|</span><span class="ident">x</span>: <span class="kw-2">&amp;</span>(<span class="ident">String</span>, <span class="ident">String</span>, <span class="ident">ModelAndField</span>)<span class="op">|</span> <span class="ident">x</span>.<span class="number">1</span> <span class="op">==</span> <span class="ident">old_enum_name</span>)
-                            {
-                                <span class="ident">changed_mysql_enum_names</span>.<span class="ident">push</span>((
-                                    <span class="ident">enm</span>.<span class="ident">name</span>.<span class="ident">clone</span>(),
-                                    <span class="ident">old_enum</span>.<span class="ident">name</span>.<span class="ident">clone</span>(),
-                                    <span class="ident">ModelAndField::new</span>(<span class="ident">model_name</span>, <span class="ident">field_name</span>),
-                                ))
-                            }
-                        }
-                    }
-                }
+            <span class="kw">let</span> <span class="ident">enum_fields</span> <span class="op">=</span> <span class="ident">new_data_model</span>.<span class="ident">find_enum_fields</span>(<span class="kw-2">&amp;</span><span class="ident">enm</span>.<span class="ident">name</span>);
+
+            <span class="kw">let</span> (<span class="ident">model_name</span>, <span class="ident">field_name</span>) <span class="op">=</span> <span class="kw">match</span> <span class="ident">enum_fields</span>.<span class="ident">first</span>() {
+                <span class="prelude-val">Some</span>((<span class="ident">model_name</span>, <span class="ident">field_name</span>)) =&gt; (<span class="ident">model_name</span>, <span class="ident">field_name</span>),
+                <span class="prelude-val">None</span> =&gt; <span class="kw">continue</span>,
+            };
+
+            <span class="kw">let</span> <span class="ident">old_model</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">old_data_model</span>.<span class="ident">find_model</span>(<span class="ident">model_name</span>) {
+                <span class="prelude-val">Some</span>(<span class="ident">old_model</span>) =&gt; <span class="ident">old_model</span>,
+                <span class="prelude-val">None</span> =&gt; <span class="kw">continue</span>,
+            };
+
+            <span class="kw">let</span> <span class="ident">old_field</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">old_model</span>.<span class="ident">find_field</span>(<span class="ident">field_name</span>) {
+                <span class="prelude-val">Some</span>(<span class="ident">old_field</span>) =&gt; <span class="ident">old_field</span>,
+                <span class="prelude-val">None</span> =&gt; <span class="kw">continue</span>,
+            };
+
+            <span class="kw">let</span> <span class="ident">old_enum_name</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">old_field</span>.<span class="ident">field_type</span>() {
+                <span class="ident">FieldType::Enum</span>(<span class="ident">old_enum_name</span>) =&gt; <span class="ident">old_enum_name</span>,
+                <span class="kw">_</span> =&gt; <span class="kw">continue</span>,
+            };
+
+            <span class="kw">let</span> <span class="ident">old_enum</span> <span class="op">=</span> <span class="ident">old_data_model</span>.<span class="ident">find_enum</span>(<span class="kw-2">&amp;</span><span class="ident">old_enum_name</span>).<span class="ident">unwrap</span>();
+
+            <span class="kw">if</span> <span class="ident">enm</span>.<span class="ident">values</span> <span class="op">==</span> <span class="ident">old_enum</span>.<span class="ident">values</span>
+                <span class="op">&amp;&amp;</span> <span class="ident">old_enum_name</span> <span class="op">!</span><span class="op">=</span> <span class="ident">enm</span>.<span class="ident">name</span>
+                <span class="op">&amp;&amp;</span> <span class="op">!</span><span class="ident">changed_mysql_enum_names</span>
+                    .<span class="ident">iter</span>()
+                    .<span class="ident">any</span>(<span class="op">|</span><span class="ident">x</span>: <span class="kw-2">&amp;</span>(<span class="ident">String</span>, <span class="ident">String</span>, <span class="ident">ModelAndField</span>)<span class="op">|</span> <span class="ident">x</span>.<span class="number">1</span> <span class="op">==</span> <span class="ident">old_enum_name</span>)
+            {
+                <span class="ident">changed_mysql_enum_names</span>.<span class="ident">push</span>((
+                    <span class="ident">enm</span>.<span class="ident">name</span>.<span class="ident">clone</span>(),
+                    <span class="ident">old_enum</span>.<span class="ident">name</span>.<span class="ident">clone</span>(),
+                    <span class="ident">ModelAndField::new</span>(<span class="ident">model_name</span>, <span class="ident">field_name</span>),
+                ))
             }
         }
 
@@ -1283,8 +1580,8 @@
 <span class="comment">// @default(cuid) / @default(uuid) / @updatedAt</span>
 <span class="kw">fn</span> <span class="ident">merge_prisma_level_defaults</span>(
     <span class="ident">old_data_model</span>: <span class="kw-2">&amp;</span><span class="ident">Datamodel</span>,
-    <span class="ident">new_data_model</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Datamodel</span>,
-    <span class="ident">warnings</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">Warning</span><span class="op">&gt;</span>,
+    <span class="ident">new_data_model</span>: <span class="kw-2">&amp;mut</span> <span class="ident">Datamodel</span>,
+    <span class="ident">warnings</span>: <span class="kw-2">&amp;mut</span> <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">Warning</span><span class="op">&gt;</span>,
 ) {
     <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">re_introspected_prisma_level_cuids</span> <span class="op">=</span> <span class="macro">vec!</span>[];
     <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">re_introspected_prisma_level_uuids</span> <span class="op">=</span> <span class="macro">vec!</span>[];
@@ -1292,22 +1589,28 @@
 
     <span class="kw">for</span> <span class="ident">model</span> <span class="kw">in</span> <span class="ident">new_data_model</span>.<span class="ident">models</span>() {
         <span class="kw">for</span> <span class="ident">field</span> <span class="kw">in</span> <span class="ident">model</span>.<span class="ident">scalar_fields</span>() {
-            <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">old_model</span>) <span class="op">=</span> <span class="ident">old_data_model</span>.<span class="ident">find_model</span>(<span class="kw-2">&amp;</span><span class="ident">model</span>.<span class="ident">name</span>) {
-                <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">old_field</span>) <span class="op">=</span> <span class="ident">old_model</span>.<span class="ident">find_scalar_field</span>(<span class="kw-2">&amp;</span><span class="ident">field</span>.<span class="ident">name</span>) {
-                    <span class="kw">if</span> <span class="ident">field</span>.<span class="ident">default_value</span>.<span class="ident">is_none</span>() <span class="op">&amp;&amp;</span> <span class="ident">field</span>.<span class="ident">field_type</span>.<span class="ident">is_string</span>() {
-                        <span class="kw">if</span> <span class="ident">old_field</span>.<span class="ident">default_value</span> <span class="op">==</span> <span class="prelude-val">Some</span>(<span class="ident">DefaultValue::new_expression</span>(<span class="ident">ValueGenerator::new_cuid</span>())) {
-                            <span class="ident">re_introspected_prisma_level_cuids</span>.<span class="ident">push</span>(<span class="ident">ModelAndField::new</span>(<span class="kw-2">&amp;</span><span class="ident">model</span>.<span class="ident">name</span>, <span class="kw-2">&amp;</span><span class="ident">field</span>.<span class="ident">name</span>));
-                        }
+            <span class="kw">let</span> <span class="ident">old_model</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">old_data_model</span>.<span class="ident">find_model</span>(<span class="kw-2">&amp;</span><span class="ident">model</span>.<span class="ident">name</span>) {
+                <span class="prelude-val">Some</span>(<span class="ident">old_model</span>) =&gt; <span class="ident">old_model</span>,
+                <span class="prelude-val">None</span> =&gt; <span class="kw">continue</span>,
+            };
 
-                        <span class="kw">if</span> <span class="ident">old_field</span>.<span class="ident">default_value</span> <span class="op">==</span> <span class="prelude-val">Some</span>(<span class="ident">DefaultValue::new_expression</span>(<span class="ident">ValueGenerator::new_uuid</span>())) {
-                            <span class="ident">re_introspected_prisma_level_uuids</span>.<span class="ident">push</span>(<span class="ident">ModelAndField::new</span>(<span class="kw-2">&amp;</span><span class="ident">model</span>.<span class="ident">name</span>, <span class="kw-2">&amp;</span><span class="ident">field</span>.<span class="ident">name</span>));
-                        }
-                    }
+            <span class="kw">let</span> <span class="ident">old_field</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">old_model</span>.<span class="ident">find_scalar_field</span>(<span class="kw-2">&amp;</span><span class="ident">field</span>.<span class="ident">name</span>) {
+                <span class="prelude-val">Some</span>(<span class="ident">mike</span>) =&gt; <span class="ident">mike</span>, <span class="comment">// oldfield</span>
+                <span class="prelude-val">None</span> =&gt; <span class="kw">continue</span>,
+            };
 
-                    <span class="kw">if</span> <span class="ident">field</span>.<span class="ident">field_type</span>.<span class="ident">is_datetime</span>() <span class="op">&amp;&amp;</span> <span class="ident">old_field</span>.<span class="ident">is_updated_at</span> {
-                        <span class="ident">re_introspected_updated_at</span>.<span class="ident">push</span>(<span class="ident">ModelAndField::new</span>(<span class="kw-2">&amp;</span><span class="ident">model</span>.<span class="ident">name</span>, <span class="kw-2">&amp;</span><span class="ident">field</span>.<span class="ident">name</span>));
-                    }
+            <span class="kw">if</span> <span class="ident">field</span>.<span class="ident">default_value</span>.<span class="ident">is_none</span>() <span class="op">&amp;&amp;</span> <span class="ident">field</span>.<span class="ident">field_type</span>.<span class="ident">is_string</span>() {
+                <span class="kw">if</span> <span class="ident">old_field</span>.<span class="ident">default_value</span> <span class="op">==</span> <span class="prelude-val">Some</span>(<span class="ident">DefaultValue::new_expression</span>(<span class="ident">ValueGenerator::new_cuid</span>())) {
+                    <span class="ident">re_introspected_prisma_level_cuids</span>.<span class="ident">push</span>(<span class="ident">ModelAndField::new</span>(<span class="kw-2">&amp;</span><span class="ident">model</span>.<span class="ident">name</span>, <span class="kw-2">&amp;</span><span class="ident">field</span>.<span class="ident">name</span>));
                 }
+
+                <span class="kw">if</span> <span class="ident">old_field</span>.<span class="ident">default_value</span> <span class="op">==</span> <span class="prelude-val">Some</span>(<span class="ident">DefaultValue::new_expression</span>(<span class="ident">ValueGenerator::new_uuid</span>())) {
+                    <span class="ident">re_introspected_prisma_level_uuids</span>.<span class="ident">push</span>(<span class="ident">ModelAndField::new</span>(<span class="kw-2">&amp;</span><span class="ident">model</span>.<span class="ident">name</span>, <span class="kw-2">&amp;</span><span class="ident">field</span>.<span class="ident">name</span>));
+                }
+            }
+
+            <span class="kw">if</span> <span class="ident">field</span>.<span class="ident">field_type</span>.<span class="ident">is_datetime</span>() <span class="op">&amp;&amp;</span> <span class="ident">old_field</span>.<span class="ident">is_updated_at</span> {
+                <span class="ident">re_introspected_updated_at</span>.<span class="ident">push</span>(<span class="ident">ModelAndField::new</span>(<span class="kw-2">&amp;</span><span class="ident">model</span>.<span class="ident">name</span>, <span class="kw-2">&amp;</span><span class="ident">field</span>.<span class="ident">name</span>));
             }
         }
     }
@@ -1345,22 +1648,28 @@
 
 <span class="comment">//@@ignore on models</span>
 <span class="comment">//@ignore on fields</span>
-<span class="kw">fn</span> <span class="ident">merge_ignores</span>(<span class="ident">old_data_model</span>: <span class="kw-2">&amp;</span><span class="ident">Datamodel</span>, <span class="ident">new_data_model</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Datamodel</span>, <span class="ident">warnings</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">Warning</span><span class="op">&gt;</span>) {
+<span class="kw">fn</span> <span class="ident">merge_ignores</span>(<span class="ident">old_data_model</span>: <span class="kw-2">&amp;</span><span class="ident">Datamodel</span>, <span class="ident">new_data_model</span>: <span class="kw-2">&amp;mut</span> <span class="ident">Datamodel</span>, <span class="ident">warnings</span>: <span class="kw-2">&amp;mut</span> <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">Warning</span><span class="op">&gt;</span>) {
     <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">re_introspected_model_ignores</span> <span class="op">=</span> <span class="macro">vec!</span>[];
     <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">re_introspected_field_ignores</span> <span class="op">=</span> <span class="macro">vec!</span>[];
 
     <span class="kw">for</span> <span class="ident">model</span> <span class="kw">in</span> <span class="ident">new_data_model</span>.<span class="ident">models</span>() {
-        <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">old_model</span>) <span class="op">=</span> <span class="ident">old_data_model</span>.<span class="ident">find_model</span>(<span class="kw-2">&amp;</span><span class="ident">model</span>.<span class="ident">name</span>) {
-            <span class="kw">if</span> <span class="ident">old_model</span>.<span class="ident">is_ignored</span> {
-                <span class="ident">re_introspected_model_ignores</span>.<span class="ident">push</span>(<span class="ident">Model::new</span>(<span class="kw-2">&amp;</span><span class="ident">model</span>.<span class="ident">name</span>));
-            }
+        <span class="kw">let</span> <span class="ident">old_model</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">old_data_model</span>.<span class="ident">find_model</span>(<span class="kw-2">&amp;</span><span class="ident">model</span>.<span class="ident">name</span>) {
+            <span class="prelude-val">Some</span>(<span class="ident">old_model</span>) =&gt; <span class="ident">old_model</span>,
+            <span class="prelude-val">None</span> =&gt; <span class="kw">continue</span>,
+        };
 
-            <span class="kw">for</span> <span class="ident">field</span> <span class="kw">in</span> <span class="ident">model</span>.<span class="ident">scalar_fields</span>() {
-                <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">old_field</span>) <span class="op">=</span> <span class="ident">old_model</span>.<span class="ident">find_scalar_field</span>(<span class="kw-2">&amp;</span><span class="ident">field</span>.<span class="ident">name</span>) {
-                    <span class="kw">if</span> <span class="ident">old_field</span>.<span class="ident">is_ignored</span> {
-                        <span class="ident">re_introspected_field_ignores</span>.<span class="ident">push</span>(<span class="ident">ModelAndField::new</span>(<span class="kw-2">&amp;</span><span class="ident">model</span>.<span class="ident">name</span>, <span class="kw-2">&amp;</span><span class="ident">field</span>.<span class="ident">name</span>));
-                    }
-                }
+        <span class="kw">if</span> <span class="ident">old_model</span>.<span class="ident">is_ignored</span> {
+            <span class="ident">re_introspected_model_ignores</span>.<span class="ident">push</span>(<span class="ident">Model::new</span>(<span class="kw-2">&amp;</span><span class="ident">model</span>.<span class="ident">name</span>));
+        }
+
+        <span class="kw">for</span> <span class="ident">field</span> <span class="kw">in</span> <span class="ident">model</span>.<span class="ident">scalar_fields</span>() {
+            <span class="kw">let</span> <span class="ident">old_field</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">old_model</span>.<span class="ident">find_scalar_field</span>(<span class="kw-2">&amp;</span><span class="ident">field</span>.<span class="ident">name</span>) {
+                <span class="prelude-val">Some</span>(<span class="ident">old_field</span>) =&gt; <span class="ident">old_field</span>,
+                <span class="prelude-val">None</span> =&gt; <span class="kw">continue</span>,
+            };
+
+            <span class="kw">if</span> <span class="ident">old_field</span>.<span class="ident">is_ignored</span> {
+                <span class="ident">re_introspected_field_ignores</span>.<span class="ident">push</span>(<span class="ident">ModelAndField::new</span>(<span class="kw-2">&amp;</span><span class="ident">model</span>.<span class="ident">name</span>, <span class="kw-2">&amp;</span><span class="ident">field</span>.<span class="ident">name</span>));
             }
         }
     }
@@ -1382,24 +1691,31 @@
     }
 }
 
-<span class="kw">fn</span> <span class="ident">merge_comments</span>(<span class="ident">old_data_model</span>: <span class="kw-2">&amp;</span><span class="ident">Datamodel</span>, <span class="ident">new_data_model</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Datamodel</span>) {
+<span class="kw">fn</span> <span class="ident">merge_comments</span>(<span class="ident">old_data_model</span>: <span class="kw-2">&amp;</span><span class="ident">Datamodel</span>, <span class="ident">new_data_model</span>: <span class="kw-2">&amp;mut</span> <span class="ident">Datamodel</span>) {
     <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">re_introspected_model_comments</span> <span class="op">=</span> <span class="macro">vec!</span>[];
     <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">re_introspected_field_comments</span> <span class="op">=</span> <span class="macro">vec!</span>[];
 
     <span class="kw">for</span> <span class="ident">model</span> <span class="kw">in</span> <span class="ident">new_data_model</span>.<span class="ident">models</span>() {
+        <span class="kw">let</span> <span class="ident">old_model</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">old_data_model</span>.<span class="ident">find_model</span>(<span class="kw-2">&amp;</span><span class="ident">model</span>.<span class="ident">name</span>) {
+            <span class="prelude-val">Some</span>(<span class="ident">old_model</span>) =&gt; <span class="ident">old_model</span>,
+            <span class="prelude-val">None</span> =&gt; <span class="kw">continue</span>,
+        };
+
+        <span class="kw">if</span> <span class="ident">old_model</span>.<span class="ident">documentation</span>.<span class="ident">is_some</span>() {
+            <span class="ident">re_introspected_model_comments</span>.<span class="ident">push</span>((<span class="ident">Model::new</span>(<span class="kw-2">&amp;</span><span class="ident">model</span>.<span class="ident">name</span>), <span class="kw-2">&amp;</span><span class="ident">old_model</span>.<span class="ident">documentation</span>))
+        }
+
         <span class="kw">for</span> <span class="ident">field</span> <span class="kw">in</span> <span class="kw-2">&amp;</span><span class="ident">model</span>.<span class="ident">fields</span> {
-            <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">old_model</span>) <span class="op">=</span> <span class="ident">old_data_model</span>.<span class="ident">find_model</span>(<span class="kw-2">&amp;</span><span class="ident">model</span>.<span class="ident">name</span>) {
-                <span class="kw">if</span> <span class="ident">old_model</span>.<span class="ident">documentation</span>.<span class="ident">is_some</span>() {
-                    <span class="ident">re_introspected_model_comments</span>.<span class="ident">push</span>((<span class="ident">Model::new</span>(<span class="kw-2">&amp;</span><span class="ident">model</span>.<span class="ident">name</span>), <span class="kw-2">&amp;</span><span class="ident">old_model</span>.<span class="ident">documentation</span>))
-                }
-                <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">old_field</span>) <span class="op">=</span> <span class="ident">old_model</span>.<span class="ident">find_field</span>(<span class="ident">field</span>.<span class="ident">name</span>()) {
-                    <span class="kw">if</span> <span class="ident">old_field</span>.<span class="ident">documentation</span>().<span class="ident">is_some</span>() {
-                        <span class="ident">re_introspected_field_comments</span>.<span class="ident">push</span>((
-                            <span class="ident">ModelAndField::new</span>(<span class="kw-2">&amp;</span><span class="ident">model</span>.<span class="ident">name</span>, <span class="ident">field</span>.<span class="ident">name</span>()),
-                            <span class="ident">old_field</span>.<span class="ident">documentation</span>().<span class="ident">map</span>(<span class="op">|</span><span class="ident">s</span><span class="op">|</span> <span class="ident">s</span>.<span class="ident">to_string</span>()),
-                        ))
-                    }
-                }
+            <span class="kw">let</span> <span class="ident">old_field</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">old_model</span>.<span class="ident">find_field</span>(<span class="ident">field</span>.<span class="ident">name</span>()) {
+                <span class="prelude-val">Some</span>(<span class="ident">old_field</span>) =&gt; <span class="ident">old_field</span>,
+                <span class="prelude-val">None</span> =&gt; <span class="kw">continue</span>,
+            };
+
+            <span class="kw">if</span> <span class="ident">old_field</span>.<span class="ident">documentation</span>().<span class="ident">is_some</span>() {
+                <span class="ident">re_introspected_field_comments</span>.<span class="ident">push</span>((
+                    <span class="ident">ModelAndField::new</span>(<span class="kw-2">&amp;</span><span class="ident">model</span>.<span class="ident">name</span>, <span class="ident">field</span>.<span class="ident">name</span>()),
+                    <span class="ident">old_field</span>.<span class="ident">documentation</span>().<span class="ident">map</span>(<span class="op">|</span><span class="ident">s</span><span class="op">|</span> <span class="ident">s</span>.<span class="ident">to_string</span>()),
+                ))
             }
         }
     }
@@ -1419,18 +1735,25 @@
 
     <span class="kw">for</span> <span class="ident">enm</span> <span class="kw">in</span> <span class="ident">new_data_model</span>.<span class="ident">enums</span>() {
         <span class="kw">for</span> <span class="ident">value</span> <span class="kw">in</span> <span class="kw-2">&amp;</span><span class="ident">enm</span>.<span class="ident">values</span> {
-            <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">old_enum</span>) <span class="op">=</span> <span class="ident">old_data_model</span>.<span class="ident">find_enum</span>(<span class="kw-2">&amp;</span><span class="ident">enm</span>.<span class="ident">name</span>) {
-                <span class="kw">if</span> <span class="ident">old_enum</span>.<span class="ident">documentation</span>.<span class="ident">is_some</span>() {
-                    <span class="ident">re_introspected_enum_comments</span>.<span class="ident">push</span>((<span class="ident">Enum::new</span>(<span class="kw-2">&amp;</span><span class="ident">enm</span>.<span class="ident">name</span>), <span class="kw-2">&amp;</span><span class="ident">old_enum</span>.<span class="ident">documentation</span>))
-                }
-                <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">old_value</span>) <span class="op">=</span> <span class="ident">old_enum</span>.<span class="ident">find_value</span>(<span class="kw-2">&amp;</span><span class="ident">value</span>.<span class="ident">name</span>) {
-                    <span class="kw">if</span> <span class="ident">old_value</span>.<span class="ident">documentation</span>.<span class="ident">is_some</span>() {
-                        <span class="ident">re_introspected_enum_value_comments</span>.<span class="ident">push</span>((
-                            <span class="ident">EnumAndValue::new</span>(<span class="kw-2">&amp;</span><span class="ident">enm</span>.<span class="ident">name</span>, <span class="kw-2">&amp;</span><span class="ident">value</span>.<span class="ident">name</span>),
-                            <span class="ident">old_value</span>.<span class="ident">documentation</span>.<span class="ident">clone</span>(),
-                        ))
-                    }
-                }
+            <span class="kw">let</span> <span class="ident">old_enum</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">old_data_model</span>.<span class="ident">find_enum</span>(<span class="kw-2">&amp;</span><span class="ident">enm</span>.<span class="ident">name</span>) {
+                <span class="prelude-val">Some</span>(<span class="ident">old_enum</span>) =&gt; <span class="ident">old_enum</span>,
+                <span class="prelude-val">None</span> =&gt; <span class="kw">continue</span>,
+            };
+
+            <span class="kw">if</span> <span class="ident">old_enum</span>.<span class="ident">documentation</span>.<span class="ident">is_some</span>() {
+                <span class="ident">re_introspected_enum_comments</span>.<span class="ident">push</span>((<span class="ident">Enum::new</span>(<span class="kw-2">&amp;</span><span class="ident">enm</span>.<span class="ident">name</span>), <span class="kw-2">&amp;</span><span class="ident">old_enum</span>.<span class="ident">documentation</span>))
+            }
+
+            <span class="kw">let</span> <span class="ident">old_value</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">old_enum</span>.<span class="ident">find_value</span>(<span class="kw-2">&amp;</span><span class="ident">value</span>.<span class="ident">name</span>) {
+                <span class="prelude-val">Some</span>(<span class="ident">old_value</span>) =&gt; <span class="ident">old_value</span>,
+                <span class="prelude-val">None</span> =&gt; <span class="kw">continue</span>,
+            };
+
+            <span class="kw">if</span> <span class="ident">old_value</span>.<span class="ident">documentation</span>.<span class="ident">is_some</span>() {
+                <span class="ident">re_introspected_enum_value_comments</span>.<span class="ident">push</span>((
+                    <span class="ident">EnumAndValue::new</span>(<span class="kw-2">&amp;</span><span class="ident">enm</span>.<span class="ident">name</span>, <span class="kw-2">&amp;</span><span class="ident">value</span>.<span class="ident">name</span>),
+                    <span class="ident">old_value</span>.<span class="ident">documentation</span>.<span class="ident">clone</span>(),
+                ))
             }
         }
     }
@@ -1447,6 +1770,5 @@
     }
 }
 </code></pre></div>
-</section><section id="search" class="content hidden"></section><div id="rustdoc-vars" data-root-path="../../" data-current-crate="sql_introspection_connector" data-search-index-js="../../search-index.js" data-search-js="../../search.js"></div>
-    <script src="../../main.js"></script><script src="../../source-script.js"></script><script src="../../source-files.js"></script>
+</section><section id="search" class="content hidden"></section></div></main><div id="rustdoc-vars" data-root-path="../../" data-current-crate="sql_introspection_connector" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.61.0 (fe5b13d68 2022-05-18)" ></div>
 </body></html>

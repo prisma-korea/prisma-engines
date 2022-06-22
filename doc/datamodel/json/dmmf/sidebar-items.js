@@ -1,1 +1,0 @@
-initSidebarItems({"fn":[["render_to_dmmf",""],["render_to_dmmf_value",""]],"struct":[["Datamodel",""],["Enum",""],["EnumValue",""],["Field",""],["Function",""],["Model",""],["PrimaryKey",""],["UniqueIndex",""]]});

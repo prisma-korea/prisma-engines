@@ -1,102 +1,107 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `introspection-engine&#x2F;connectors&#x2F;mongodb-introspection-connector&#x2F;src&#x2F;sampler&#x2F;statistics.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>statistics.rs - source</title><link rel="stylesheet" type="text/css" href="../../../normalize.css"><link rel="stylesheet" type="text/css" href="../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../../light.css"  id="themeStyle"><link rel="stylesheet" type="text/css" href="../../../dark.css" disabled ><link rel="stylesheet" type="text/css" href="../../../ayu.css" disabled ><script id="default-settings" ></script><script src="../../../storage.js"></script><script src="../../../crates.js"></script><noscript><link rel="stylesheet" href="../../../noscript.css"></noscript><link rel="alternate icon" type="image/png" href="../../../favicon-16x16.png"><link rel="alternate icon" type="image/png" href="../../../favicon-32x32.png"><link rel="icon" type="image/svg+xml" href="../../../favicon.svg"><style type="text/css">#crate-search{background-image:url("../../../down-arrow.svg");}</style></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu" role="button">&#9776;</div><a href='../../../mongodb_introspection_connector/index.html'><div class='logo-container rust-logo'><img src='../../../rust-logo.png' alt='logo'></div></a></nav><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!" aria-haspopup="menu" title="themes"><img width="18" height="18" alt="Pick another theme!" src="../../../brush.svg"></button><div id="theme-choices" role="menu"></div></div><nav class="sub"><form class="search-form"><div class="search-container"><div><select id="crate-search"><option value="All crates">All crates</option></select><input class="search-input" name="search" disabled autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"></div><button type="button" id="help-button" title="help">?</button><a id="settings-menu" href="../../../settings.html" title="settings"><img width="18" height="18" alt="Change settings" src="../../../wheel.svg"></a></div></form></nav><section id="main" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">  1</span>
-<span id="2">  2</span>
-<span id="3">  3</span>
-<span id="4">  4</span>
-<span id="5">  5</span>
-<span id="6">  6</span>
-<span id="7">  7</span>
-<span id="8">  8</span>
-<span id="9">  9</span>
-<span id="10"> 10</span>
-<span id="11"> 11</span>
-<span id="12"> 12</span>
-<span id="13"> 13</span>
-<span id="14"> 14</span>
-<span id="15"> 15</span>
-<span id="16"> 16</span>
-<span id="17"> 17</span>
-<span id="18"> 18</span>
-<span id="19"> 19</span>
-<span id="20"> 20</span>
-<span id="21"> 21</span>
-<span id="22"> 22</span>
-<span id="23"> 23</span>
-<span id="24"> 24</span>
-<span id="25"> 25</span>
-<span id="26"> 26</span>
-<span id="27"> 27</span>
-<span id="28"> 28</span>
-<span id="29"> 29</span>
-<span id="30"> 30</span>
-<span id="31"> 31</span>
-<span id="32"> 32</span>
-<span id="33"> 33</span>
-<span id="34"> 34</span>
-<span id="35"> 35</span>
-<span id="36"> 36</span>
-<span id="37"> 37</span>
-<span id="38"> 38</span>
-<span id="39"> 39</span>
-<span id="40"> 40</span>
-<span id="41"> 41</span>
-<span id="42"> 42</span>
-<span id="43"> 43</span>
-<span id="44"> 44</span>
-<span id="45"> 45</span>
-<span id="46"> 46</span>
-<span id="47"> 47</span>
-<span id="48"> 48</span>
-<span id="49"> 49</span>
-<span id="50"> 50</span>
-<span id="51"> 51</span>
-<span id="52"> 52</span>
-<span id="53"> 53</span>
-<span id="54"> 54</span>
-<span id="55"> 55</span>
-<span id="56"> 56</span>
-<span id="57"> 57</span>
-<span id="58"> 58</span>
-<span id="59"> 59</span>
-<span id="60"> 60</span>
-<span id="61"> 61</span>
-<span id="62"> 62</span>
-<span id="63"> 63</span>
-<span id="64"> 64</span>
-<span id="65"> 65</span>
-<span id="66"> 66</span>
-<span id="67"> 67</span>
-<span id="68"> 68</span>
-<span id="69"> 69</span>
-<span id="70"> 70</span>
-<span id="71"> 71</span>
-<span id="72"> 72</span>
-<span id="73"> 73</span>
-<span id="74"> 74</span>
-<span id="75"> 75</span>
-<span id="76"> 76</span>
-<span id="77"> 77</span>
-<span id="78"> 78</span>
-<span id="79"> 79</span>
-<span id="80"> 80</span>
-<span id="81"> 81</span>
-<span id="82"> 82</span>
-<span id="83"> 83</span>
-<span id="84"> 84</span>
-<span id="85"> 85</span>
-<span id="86"> 86</span>
-<span id="87"> 87</span>
-<span id="88"> 88</span>
-<span id="89"> 89</span>
-<span id="90"> 90</span>
-<span id="91"> 91</span>
-<span id="92"> 92</span>
-<span id="93"> 93</span>
-<span id="94"> 94</span>
-<span id="95"> 95</span>
-<span id="96"> 96</span>
-<span id="97"> 97</span>
-<span id="98"> 98</span>
-<span id="99"> 99</span>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `introspection-engine/connectors/mongodb-introspection-connector/src/sampler/statistics.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>statistics.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" type="text/css" href="../../../normalize.css"><link rel="stylesheet" type="text/css" href="../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../../ayu.css" disabled><link rel="stylesheet" type="text/css" href="../../../dark.css" disabled><link rel="stylesheet" type="text/css" href="../../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../../storage.js"></script><script src="../../../crates.js"></script><script defer src="../../../main.js"></script><script defer src="../../../source-script.js"></script><script defer src="../../../source-files.js"></script>
+    <noscript><link rel="stylesheet" href="../../../noscript.css"></noscript><link rel="alternate icon" type="image/png" href="../../../favicon-16x16.png"><link rel="alternate icon" type="image/png" href="../../../favicon-32x32.png"><link rel="icon" type="image/svg+xml" href="../../../favicon.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../../mongodb_introspection_connector/index.html"><div class="logo-container"><img class="rust-logo" src="../../../rust-logo.svg" alt="logo"></div>
+        </a><h2 class="location"></h2>
+    </nav>
+    <nav class="sidebar"><a class="sidebar-logo" href="../../../mongodb_introspection_connector/index.html"><div class="logo-container"><img class="rust-logo" src="../../../rust-logo.svg" alt="logo"></div>
+        </a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../../mongodb_introspection_connector/index.html"><img class="rust-logo" src="../../../rust-logo.svg" alt="logo"></a><nav class="sub"><div class="theme-picker hidden"><button id="theme-picker" aria-label="Pick another theme!" aria-haspopup="menu" title="themes"><img width="22" height="22" alt="Pick another theme!" src="../../../brush.svg"></button><div id="theme-choices" role="menu"></div></div><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><button type="button" id="help-button" title="help">?</button><a id="settings-menu" href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../wheel.svg"></a></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
+<span id="2">2</span>
+<span id="3">3</span>
+<span id="4">4</span>
+<span id="5">5</span>
+<span id="6">6</span>
+<span id="7">7</span>
+<span id="8">8</span>
+<span id="9">9</span>
+<span id="10">10</span>
+<span id="11">11</span>
+<span id="12">12</span>
+<span id="13">13</span>
+<span id="14">14</span>
+<span id="15">15</span>
+<span id="16">16</span>
+<span id="17">17</span>
+<span id="18">18</span>
+<span id="19">19</span>
+<span id="20">20</span>
+<span id="21">21</span>
+<span id="22">22</span>
+<span id="23">23</span>
+<span id="24">24</span>
+<span id="25">25</span>
+<span id="26">26</span>
+<span id="27">27</span>
+<span id="28">28</span>
+<span id="29">29</span>
+<span id="30">30</span>
+<span id="31">31</span>
+<span id="32">32</span>
+<span id="33">33</span>
+<span id="34">34</span>
+<span id="35">35</span>
+<span id="36">36</span>
+<span id="37">37</span>
+<span id="38">38</span>
+<span id="39">39</span>
+<span id="40">40</span>
+<span id="41">41</span>
+<span id="42">42</span>
+<span id="43">43</span>
+<span id="44">44</span>
+<span id="45">45</span>
+<span id="46">46</span>
+<span id="47">47</span>
+<span id="48">48</span>
+<span id="49">49</span>
+<span id="50">50</span>
+<span id="51">51</span>
+<span id="52">52</span>
+<span id="53">53</span>
+<span id="54">54</span>
+<span id="55">55</span>
+<span id="56">56</span>
+<span id="57">57</span>
+<span id="58">58</span>
+<span id="59">59</span>
+<span id="60">60</span>
+<span id="61">61</span>
+<span id="62">62</span>
+<span id="63">63</span>
+<span id="64">64</span>
+<span id="65">65</span>
+<span id="66">66</span>
+<span id="67">67</span>
+<span id="68">68</span>
+<span id="69">69</span>
+<span id="70">70</span>
+<span id="71">71</span>
+<span id="72">72</span>
+<span id="73">73</span>
+<span id="74">74</span>
+<span id="75">75</span>
+<span id="76">76</span>
+<span id="77">77</span>
+<span id="78">78</span>
+<span id="79">79</span>
+<span id="80">80</span>
+<span id="81">81</span>
+<span id="82">82</span>
+<span id="83">83</span>
+<span id="84">84</span>
+<span id="85">85</span>
+<span id="86">86</span>
+<span id="87">87</span>
+<span id="88">88</span>
+<span id="89">89</span>
+<span id="90">90</span>
+<span id="91">91</span>
+<span id="92">92</span>
+<span id="93">93</span>
+<span id="94">94</span>
+<span id="95">95</span>
+<span id="96">96</span>
+<span id="97">97</span>
+<span id="98">98</span>
+<span id="99">99</span>
 <span id="100">100</span>
 <span id="101">101</span>
 <span id="102">102</span>
@@ -463,40 +468,174 @@
 <span id="463">463</span>
 <span id="464">464</span>
 <span id="465">465</span>
-</pre><pre class="rust"><code><span class="kw">mod</span> <span class="ident">name</span>;
+<span id="466">466</span>
+<span id="467">467</span>
+<span id="468">468</span>
+<span id="469">469</span>
+<span id="470">470</span>
+<span id="471">471</span>
+<span id="472">472</span>
+<span id="473">473</span>
+<span id="474">474</span>
+<span id="475">475</span>
+<span id="476">476</span>
+<span id="477">477</span>
+<span id="478">478</span>
+<span id="479">479</span>
+<span id="480">480</span>
+<span id="481">481</span>
+<span id="482">482</span>
+<span id="483">483</span>
+<span id="484">484</span>
+<span id="485">485</span>
+<span id="486">486</span>
+<span id="487">487</span>
+<span id="488">488</span>
+<span id="489">489</span>
+<span id="490">490</span>
+<span id="491">491</span>
+<span id="492">492</span>
+<span id="493">493</span>
+<span id="494">494</span>
+<span id="495">495</span>
+<span id="496">496</span>
+<span id="497">497</span>
+<span id="498">498</span>
+<span id="499">499</span>
+<span id="500">500</span>
+<span id="501">501</span>
+<span id="502">502</span>
+<span id="503">503</span>
+<span id="504">504</span>
+<span id="505">505</span>
+<span id="506">506</span>
+<span id="507">507</span>
+<span id="508">508</span>
+<span id="509">509</span>
+<span id="510">510</span>
+<span id="511">511</span>
+<span id="512">512</span>
+<span id="513">513</span>
+<span id="514">514</span>
+<span id="515">515</span>
+<span id="516">516</span>
+<span id="517">517</span>
+<span id="518">518</span>
+<span id="519">519</span>
+<span id="520">520</span>
+<span id="521">521</span>
+<span id="522">522</span>
+<span id="523">523</span>
+<span id="524">524</span>
+<span id="525">525</span>
+<span id="526">526</span>
+<span id="527">527</span>
+<span id="528">528</span>
+<span id="529">529</span>
+<span id="530">530</span>
+<span id="531">531</span>
+<span id="532">532</span>
+<span id="533">533</span>
+<span id="534">534</span>
+<span id="535">535</span>
+<span id="536">536</span>
+<span id="537">537</span>
+<span id="538">538</span>
+<span id="539">539</span>
+<span id="540">540</span>
+<span id="541">541</span>
+<span id="542">542</span>
+<span id="543">543</span>
+<span id="544">544</span>
+<span id="545">545</span>
+<span id="546">546</span>
+<span id="547">547</span>
+<span id="548">548</span>
+<span id="549">549</span>
+<span id="550">550</span>
+<span id="551">551</span>
+<span id="552">552</span>
+<span id="553">553</span>
+<span id="554">554</span>
+<span id="555">555</span>
+<span id="556">556</span>
+<span id="557">557</span>
+<span id="558">558</span>
+<span id="559">559</span>
+<span id="560">560</span>
+<span id="561">561</span>
+<span id="562">562</span>
+<span id="563">563</span>
+<span id="564">564</span>
+<span id="565">565</span>
+<span id="566">566</span>
+<span id="567">567</span>
+<span id="568">568</span>
+<span id="569">569</span>
+<span id="570">570</span>
+<span id="571">571</span>
+<span id="572">572</span>
+<span id="573">573</span>
+<span id="574">574</span>
+<span id="575">575</span>
+<span id="576">576</span>
+<span id="577">577</span>
+<span id="578">578</span>
+<span id="579">579</span>
+<span id="580">580</span>
+<span id="581">581</span>
+<span id="582">582</span>
+<span id="583">583</span>
+<span id="584">584</span>
+<span id="585">585</span>
+<span id="586">586</span>
+<span id="587">587</span>
+<span id="588">588</span>
+<span id="589">589</span>
+<span id="590">590</span>
+<span id="591">591</span>
+<span id="592">592</span>
+<span id="593">593</span>
+<span id="594">594</span>
+<span id="595">595</span>
+<span id="596">596</span>
+<span id="597">597</span>
+<span id="598">598</span>
+</pre><pre class="rust"><code><span class="kw">mod</span> <span class="ident">indices</span>;
+<span class="kw">mod</span> <span class="ident">name</span>;
 
-<span class="kw">use</span> <span class="ident">mongodb_schema_describer</span>::{<span class="ident">IndexFieldProperty</span>, <span class="ident">IndexWalker</span>};
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">use</span> <span class="ident">name::Name</span>;
 
 <span class="kw">use</span> <span class="kw">super</span>::{<span class="ident">field_type::FieldType</span>, <span class="ident">CompositeTypeDepth</span>};
 <span class="kw">use</span> <span class="ident">convert_case</span>::{<span class="ident">Case</span>, <span class="ident">Casing</span>};
-<span class="kw">use</span> <span class="ident">datamodel</span>::{
-    <span class="ident">CompositeType</span>, <span class="ident">CompositeTypeField</span>, <span class="ident">Datamodel</span>, <span class="ident">DefaultValue</span>, <span class="ident">Field</span>, <span class="ident">IndexDefinition</span>, <span class="ident">IndexField</span>, <span class="ident">IndexType</span>, <span class="ident">Model</span>,
-    <span class="ident">NativeTypeInstance</span>, <span class="ident">PrimaryKeyDefinition</span>, <span class="ident">PrimaryKeyField</span>, <span class="ident">ScalarField</span>, <span class="ident">ScalarType</span>, <span class="ident">SortOrder</span>, <span class="ident">ValueGenerator</span>,
-    <span class="ident">WithDatabaseName</span>,
+<span class="kw">use</span> <span class="ident">datamodel::dml</span>::{
+    <span class="self">self</span>, <span class="ident">CompositeType</span>, <span class="ident">CompositeTypeField</span>, <span class="ident">CompositeTypeFieldType</span>, <span class="ident">Datamodel</span>, <span class="ident">DefaultValue</span>, <span class="ident">Field</span>, <span class="ident">FieldArity</span>, <span class="ident">Model</span>,
+    <span class="ident">PrimaryKeyDefinition</span>, <span class="ident">PrimaryKeyField</span>, <span class="ident">ScalarField</span>, <span class="ident">ScalarType</span>, <span class="ident">ValueGenerator</span>, <span class="ident">WithDatabaseName</span>,
 };
 <span class="kw">use</span> <span class="ident">introspection_connector::Warning</span>;
 <span class="kw">use</span> <span class="ident">mongodb::bson</span>::{<span class="ident">Bson</span>, <span class="ident">Document</span>};
-<span class="kw">use</span> <span class="ident">native_types::MongoDbType</span>;
+<span class="kw">use</span> <span class="ident">mongodb_schema_describer::IndexWalker</span>;
 <span class="kw">use</span> <span class="ident">once_cell::sync::Lazy</span>;
 <span class="kw">use</span> <span class="ident">regex::Regex</span>;
 <span class="kw">use</span> <span class="ident">std</span>::{
     <span class="ident">borrow::Cow</span>,
     <span class="ident">cmp::Ordering</span>,
-    <span class="ident">collections</span>::{<span class="ident">BTreeMap</span>, <span class="ident">HashMap</span>},
+    <span class="ident">collections</span>::{<span class="ident">BTreeMap</span>, <span class="ident">HashMap</span>, <span class="ident">HashSet</span>},
     <span class="ident">fmt</span>,
 };
 
 <span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">const</span> <span class="ident">SAMPLE_SIZE</span>: <span class="ident">i32</span> <span class="op">=</span> <span class="number">1000</span>;
 
 <span class="kw">static</span> <span class="ident">RESERVED_NAMES</span>: <span class="kw-2">&amp;</span>[<span class="kw-2">&amp;</span><span class="ident">str</span>] <span class="op">=</span> <span class="kw-2">&amp;</span>[<span class="string">&quot;PrismaClient&quot;</span>];
+<span class="kw">static</span> <span class="ident">COMMENTED_OUT_FIELD</span>: <span class="kw-2">&amp;</span><span class="ident">str</span> <span class="op">=</span> <span class="string">&quot;This field was commented out because of an invalid name. Please provide a valid one that matches [a-zA-Z][a-zA-Z0-9_]*&quot;</span>;
+<span class="kw">static</span> <span class="ident">EMPTY_TYPE_DETECTED</span>: <span class="kw-2">&amp;</span><span class="ident">str</span> <span class="op">=</span> <span class="string">&quot;Nested objects had no data in the sample dataset to introspect a nested type.&quot;</span>;
 
 <span class="doccomment">/// Statistical data from a MongoDB database for determining a Prisma data</span>
 <span class="doccomment">/// model.</span>
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Default</span>)]</span>
 <span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">struct</span> <span class="ident">Statistics</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span> {
-    <span class="doccomment">/// (model_name, field_name) -&gt; type percentages</span>
-    <span class="ident">fields</span>: <span class="ident">BTreeMap</span><span class="op">&lt;</span>(<span class="ident">Name</span>, <span class="ident">String</span>), <span class="ident">FieldSampler</span><span class="op">&gt;</span>,
+    <span class="doccomment">/// (container_name, field_name) -&gt; type percentages</span>
+    <span class="ident">samples</span>: <span class="ident">BTreeMap</span><span class="op">&lt;</span>(<span class="ident">Name</span>, <span class="ident">String</span>), <span class="ident">FieldSampler</span><span class="op">&gt;</span>,
     <span class="doccomment">/// model_name -&gt; document count</span>
     <span class="ident">models</span>: <span class="ident">HashMap</span><span class="op">&lt;</span><span class="ident">Name</span>, <span class="ident">usize</span><span class="op">&gt;</span>,
     <span class="doccomment">/// model_name -&gt; indices</span>
@@ -515,141 +654,66 @@
     }
 
     <span class="doccomment">/// Track a collection as prisma model.</span>
-    <span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">fn</span> <span class="ident">track_model</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">model</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>) {
+    <span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">fn</span> <span class="ident">track_model</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">model</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>) {
         <span class="self">self</span>.<span class="ident">models</span>.<span class="ident">entry</span>(<span class="ident">Name::Model</span>(<span class="ident">model</span>.<span class="ident">to_string</span>())).<span class="ident">or_insert</span>(<span class="number">0</span>);
     }
 
-    <span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">fn</span> <span class="ident">track_model_fields</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">model</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>, <span class="ident">document</span>: <span class="ident">Document</span>) {
+    <span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">fn</span> <span class="ident">track_model_fields</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">model</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>, <span class="ident">document</span>: <span class="ident">Document</span>) {
         <span class="self">self</span>.<span class="ident">track_document_types</span>(<span class="ident">Name::Model</span>(<span class="ident">model</span>.<span class="ident">to_string</span>()), <span class="kw-2">&amp;</span><span class="ident">document</span>, <span class="self">self</span>.<span class="ident">composite_type_depth</span>);
     }
 
     <span class="doccomment">/// Track an index for the given model.</span>
-    <span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">fn</span> <span class="ident">track_index</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">model_name</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>, <span class="ident">index</span>: <span class="ident">IndexWalker</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span>) {
+    <span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">fn</span> <span class="ident">track_index</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">model_name</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>, <span class="ident">index</span>: <span class="ident">IndexWalker</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span>) {
         <span class="kw">let</span> <span class="ident">indexes</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">indices</span>.<span class="ident">entry</span>(<span class="ident">model_name</span>.<span class="ident">to_string</span>()).<span class="ident">or_default</span>();
         <span class="ident">indexes</span>.<span class="ident">push</span>(<span class="ident">index</span>);
     }
 
     <span class="doccomment">/// From the given data, create a Prisma data model with best effort basis.</span>
-    <span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">fn</span> <span class="ident">into_datamodel</span>(<span class="self">self</span>, <span class="ident">warnings</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">Warning</span><span class="op">&gt;</span>) -&gt; <span class="ident">Datamodel</span> {
+    <span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">fn</span> <span class="ident">into_datamodel</span>(<span class="self">self</span>, <span class="ident">warnings</span>: <span class="kw-2">&amp;mut</span> <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">Warning</span><span class="op">&gt;</span>) -&gt; <span class="ident">Datamodel</span> {
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">data_model</span> <span class="op">=</span> <span class="ident">Datamodel::new</span>();
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">indices</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">indices</span>;
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">unsupported</span> <span class="op">=</span> <span class="ident">Vec::new</span>();
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">undecided_types</span> <span class="op">=</span> <span class="ident">Vec::new</span>();
+        <span class="kw">let</span> (<span class="kw-2">mut</span> <span class="ident">models</span>, <span class="kw-2">mut</span> <span class="ident">types</span>) <span class="op">=</span> <span class="ident">populate_fields</span>(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">models</span>, <span class="self">self</span>.<span class="ident">samples</span>, <span class="ident">warnings</span>);
 
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">models</span>: <span class="ident">BTreeMap</span><span class="op">&lt;</span><span class="ident">String</span>, <span class="ident">Model</span><span class="op">&gt;</span> <span class="op">=</span> <span class="self">self</span>
-            .<span class="ident">models</span>
-            .<span class="ident">iter</span>()
-            .<span class="ident">flat_map</span>(<span class="op">|</span>(<span class="ident">name</span>, <span class="kw">_</span>)<span class="op">|</span> <span class="ident">name</span>.<span class="ident">as_model_name</span>())
-            .<span class="ident">map</span>(<span class="op">|</span><span class="ident">model_name</span><span class="op">|</span> (<span class="ident">model_name</span>.<span class="ident">to_string</span>(), <span class="ident">new_model</span>(<span class="ident">model_name</span>)))
-            .<span class="ident">collect</span>();
-
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">types</span>: <span class="ident">BTreeMap</span><span class="op">&lt;</span><span class="ident">String</span>, <span class="ident">CompositeType</span><span class="op">&gt;</span> <span class="op">=</span> <span class="self">self</span>
-            .<span class="ident">models</span>
-            .<span class="ident">iter</span>()
-            .<span class="ident">flat_map</span>(<span class="op">|</span>(<span class="ident">name</span>, <span class="kw">_</span>)<span class="op">|</span> <span class="ident">name</span>.<span class="ident">as_type_name</span>())
-            .<span class="ident">map</span>(<span class="op">|</span><span class="ident">type_name</span><span class="op">|</span> (<span class="ident">type_name</span>.<span class="ident">to_string</span>(), <span class="ident">new_composite_type</span>(<span class="ident">type_name</span>)))
-            .<span class="ident">collect</span>();
-
-        <span class="kw">for</span> ((<span class="ident">name</span>, <span class="ident">field_name</span>), <span class="ident">sampler</span>) <span class="kw">in</span> <span class="self">self</span>.<span class="ident">fields</span>.<span class="ident">into_iter</span>() {
-            <span class="kw">let</span> <span class="ident">doc_count</span> <span class="op">=</span> <span class="kw-2">*</span><span class="self">self</span>.<span class="ident">models</span>.<span class="ident">get</span>(<span class="kw-2">&amp;</span><span class="ident">name</span>).<span class="ident">unwrap_or</span>(<span class="kw-2">&amp;</span><span class="number">0</span>);
-            <span class="kw">let</span> <span class="ident">field_count</span> <span class="op">=</span> <span class="ident">sampler</span>.<span class="ident">counter</span>;
-
-            <span class="kw">let</span> <span class="ident">percentages</span> <span class="op">=</span> <span class="ident">sampler</span>.<span class="ident">percentages</span>();
-
-            <span class="kw">let</span> <span class="ident">field_type</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">percentages</span>.<span class="ident">find_most_common</span>() {
-                <span class="prelude-val">Some</span>(<span class="ident">field_type</span>) =&gt; <span class="ident">field_type</span>.<span class="ident">to_owned</span>(),
-                <span class="prelude-val">None</span> =&gt; <span class="ident">FieldType::Unsupported</span>(<span class="string">&quot;Unknown&quot;</span>),
-            };
-
-            <span class="kw">if</span> <span class="kw">let</span> <span class="ident">FieldType::Unsupported</span>(<span class="ident">r#type</span>) <span class="op">=</span> <span class="ident">field_type</span> {
-                <span class="ident">unsupported</span>.<span class="ident">push</span>((<span class="ident">name</span>.<span class="ident">to_string</span>(), <span class="ident">field_name</span>.<span class="ident">to_string</span>(), <span class="ident">r#type</span>));
-            }
-
-            <span class="kw">if</span> <span class="ident">percentages</span>.<span class="ident">data</span>.<span class="ident">len</span>() <span class="op">&gt;</span> <span class="number">1</span> {
-                <span class="ident">undecided_types</span>.<span class="ident">push</span>((<span class="ident">name</span>.<span class="ident">to_string</span>(), <span class="ident">field_name</span>.<span class="ident">to_string</span>(), <span class="ident">field_type</span>.<span class="ident">to_string</span>()));
-            }
-
-            <span class="kw">let</span> <span class="ident">arity</span> <span class="op">=</span> <span class="kw">if</span> <span class="ident">field_type</span>.<span class="ident">is_array</span>() {
-                <span class="ident">datamodel::FieldArity::List</span>
-            } <span class="kw">else</span> <span class="kw">if</span> <span class="ident">doc_count</span> <span class="op">&gt;</span> <span class="ident">field_count</span> <span class="op">|</span><span class="op">|</span> <span class="ident">sampler</span>.<span class="ident">nullable</span> {
-                <span class="ident">datamodel::FieldArity::Optional</span>
-            } <span class="kw">else</span> {
-                <span class="ident">datamodel::FieldArity::Required</span>
-            };
-
-            <span class="kw">let</span> <span class="ident">documentation</span> <span class="op">=</span> <span class="kw">if</span> <span class="ident">percentages</span>.<span class="ident">has_type_variety</span>() {
-                <span class="prelude-val">Some</span>(<span class="macro">format!</span>(
-                    <span class="string">&quot;Multiple data types found: {} out of {} sampled entries&quot;</span>,
-                    <span class="ident">percentages</span>, <span class="ident">field_count</span>
-                ))
-            } <span class="kw">else</span> {
-                <span class="prelude-val">None</span>
-            };
-
-            <span class="kw">let</span> (<span class="ident">sanitized_name</span>, <span class="ident">database_name</span>) <span class="op">=</span> <span class="kw">match</span> <span class="ident">sanitize_string</span>(<span class="kw-2">&amp;</span><span class="ident">field_name</span>) {
-                <span class="prelude-val">Some</span>(<span class="ident">sanitized</span>) =&gt; (<span class="ident">sanitized</span>, <span class="prelude-val">Some</span>(<span class="ident">field_name</span>)),
-                <span class="prelude-val">None</span> <span class="kw">if</span> <span class="ident">field_name</span> <span class="op">==</span> <span class="string">&quot;id&quot;</span> =&gt; (<span class="string">&quot;id_&quot;</span>.<span class="ident">to_string</span>(), <span class="prelude-val">Some</span>(<span class="ident">field_name</span>)),
-                <span class="prelude-val">None</span> =&gt; (<span class="ident">field_name</span>, <span class="prelude-val">None</span>),
-            };
-
-            <span class="kw">match</span> <span class="ident">name</span> {
-                <span class="ident">Name::Model</span>(<span class="ident">model_name</span>) =&gt; {
-                    <span class="kw">let</span> <span class="ident">model</span> <span class="op">=</span> <span class="ident">models</span>.<span class="ident">get_mut</span>(<span class="kw-2">&amp;</span><span class="ident">model_name</span>).<span class="ident">unwrap</span>();
-
-                    <span class="kw">if</span> <span class="ident">database_name</span>.<span class="ident">as_deref</span>() <span class="op">==</span> <span class="prelude-val">Some</span>(<span class="string">&quot;_id&quot;</span>) {
-                        <span class="kw">continue</span>;
-                    }
-
-                    <span class="ident">model</span>.<span class="ident">fields</span>.<span class="ident">push</span>(<span class="ident">Field::ScalarField</span>(<span class="ident">ScalarField</span> {
-                        <span class="ident">name</span>: <span class="ident">sanitized_name</span>,
-                        <span class="ident">field_type</span>: <span class="ident">field_type</span>.<span class="ident">into</span>(),
-                        <span class="ident">arity</span>,
-                        <span class="ident">database_name</span>,
-                        <span class="ident">default_value</span>: <span class="prelude-val">None</span>,
-                        <span class="ident">documentation</span>,
-                        <span class="ident">is_generated</span>: <span class="bool-val">false</span>,
-                        <span class="ident">is_updated_at</span>: <span class="bool-val">false</span>,
-                        <span class="ident">is_commented_out</span>: <span class="bool-val">false</span>,
-                        <span class="ident">is_ignored</span>: <span class="bool-val">false</span>,
-                    }));
-                }
-                <span class="ident">Name::CompositeType</span>(<span class="ident">type_name</span>) =&gt; {
-                    <span class="kw">let</span> <span class="ident">r#type</span> <span class="op">=</span> <span class="ident">types</span>.<span class="ident">get_mut</span>(<span class="kw-2">&amp;</span><span class="ident">type_name</span>).<span class="ident">unwrap</span>();
-
-                    <span class="ident">r#type</span>.<span class="ident">fields</span>.<span class="ident">push</span>(<span class="ident">CompositeTypeField</span> {
-                        <span class="ident">name</span>: <span class="ident">sanitized_name</span>,
-                        <span class="ident">r#type</span>: <span class="ident">field_type</span>.<span class="ident">into</span>(),
-                        <span class="ident">arity</span>,
-                        <span class="ident">documentation</span>,
-                        <span class="ident">database_name</span>,
-                    });
-                }
-            }
-        }
-
-        <span class="ident">add_indices_to_models</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">models</span>, <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">indices</span>);
+        <span class="ident">indices::add_to_models</span>(<span class="kw-2">&amp;mut</span> <span class="ident">models</span>, <span class="kw-2">&amp;mut</span> <span class="ident">types</span>, <span class="kw-2">&amp;mut</span> <span class="ident">indices</span>, <span class="ident">warnings</span>);
+        <span class="ident">add_missing_ids_to_models</span>(<span class="kw-2">&amp;mut</span> <span class="ident">models</span>);
 
         <span class="kw">for</span> (<span class="kw">_</span>, <span class="ident">model</span>) <span class="kw">in</span> <span class="ident">models</span>.<span class="ident">into_iter</span>() {
             <span class="ident">data_model</span>.<span class="ident">add_model</span>(<span class="ident">model</span>);
         }
 
-        <span class="kw">for</span> (<span class="kw">_</span>, <span class="ident">composite_type</span>) <span class="kw">in</span> <span class="ident">types</span>.<span class="ident">into_iter</span>() {
+        <span class="kw">for</span> (<span class="kw">_</span>, <span class="kw-2">mut</span> <span class="ident">composite_type</span>) <span class="kw">in</span> <span class="ident">types</span>.<span class="ident">into_iter</span>() {
+            <span class="kw">if</span> <span class="ident">composite_type</span>
+                .<span class="ident">fields</span>
+                .<span class="ident">iter</span>()
+                .<span class="ident">any</span>(<span class="op">|</span><span class="ident">f</span><span class="op">|</span> <span class="ident">f</span>.<span class="ident">database_name</span> <span class="op">==</span> <span class="prelude-val">Some</span>(<span class="string">&quot;_id&quot;</span>.<span class="ident">into</span>()))
+            {
+                <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">field</span>) <span class="op">=</span> <span class="ident">composite_type</span>
+                    .<span class="ident">fields</span>
+                    .<span class="ident">iter_mut</span>()
+                    .<span class="ident">find</span>(<span class="op">|</span><span class="ident">f</span><span class="op">|</span> <span class="ident">f</span>.<span class="ident">name</span> <span class="op">==</span> <span class="kw-2">*</span><span class="string">&quot;id&quot;</span> <span class="op">&amp;&amp;</span> <span class="ident">f</span>.<span class="ident">database_name</span>.<span class="ident">is_none</span>())
+                {
+                    <span class="ident">field</span>.<span class="ident">name</span> <span class="op">=</span> <span class="string">&quot;id_&quot;</span>.<span class="ident">into</span>();
+                    <span class="ident">field</span>.<span class="ident">database_name</span> <span class="op">=</span> <span class="prelude-val">Some</span>(<span class="string">&quot;id&quot;</span>.<span class="ident">into</span>());
+                }
+            }
+
             <span class="ident">data_model</span>.<span class="ident">composite_types</span>.<span class="ident">push</span>(<span class="ident">composite_type</span>);
-        }
-
-        <span class="kw">if</span> <span class="op">!</span><span class="ident">unsupported</span>.<span class="ident">is_empty</span>() {
-            <span class="ident">warnings</span>.<span class="ident">push</span>(<span class="ident"><span class="kw">crate</span>::warnings::unsupported_type</span>(<span class="kw-2">&amp;</span><span class="ident">unsupported</span>));
-        }
-
-        <span class="kw">if</span> <span class="op">!</span><span class="ident">undecided_types</span>.<span class="ident">is_empty</span>() {
-            <span class="ident">warnings</span>.<span class="ident">push</span>(<span class="ident"><span class="kw">crate</span>::warnings::undecided_field_type</span>(<span class="kw-2">&amp;</span><span class="ident">undecided_types</span>));
         }
 
         <span class="ident">data_model</span>
     }
 
+    <span class="doccomment">/// Creates a new name for a composite type with the following rules:</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// - if model is foo and field is bar, the type is FooBar</span>
+    <span class="doccomment">/// - if a model already exists with the name, we&#39;ll use FooBar_</span>
     <span class="kw">fn</span> <span class="ident">composite_type_name</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">model</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>, <span class="ident">field</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>) -&gt; <span class="ident">Name</span> {
-        <span class="kw">let</span> <span class="ident">name</span> <span class="op">=</span> <span class="ident">Name::Model</span>(<span class="macro">format!</span>(<span class="string">&quot;{}_{}&quot;</span>, <span class="ident">model</span>, <span class="ident">field</span>).<span class="ident">to_case</span>(<span class="ident">Case::Pascal</span>));
+        <span class="kw">let</span> <span class="ident">combined</span>: <span class="ident">String</span> <span class="op">=</span> <span class="macro">format!</span>(<span class="string">&quot;{}_{}&quot;</span>, <span class="ident">model</span>, <span class="ident">field</span>)
+            .<span class="ident">chars</span>()
+            .<span class="ident">filter</span>(<span class="op">|</span><span class="ident">c</span><span class="op">|</span> <span class="ident">c</span>.<span class="ident">is_ascii</span>())
+            .<span class="ident">collect</span>();
+
+        <span class="kw">let</span> <span class="ident">name</span> <span class="op">=</span> <span class="ident">Name::Model</span>(<span class="ident">combined</span>.<span class="ident">to_case</span>(<span class="ident">Case::Pascal</span>));
 
         <span class="kw">let</span> <span class="ident">name</span> <span class="op">=</span> <span class="kw">if</span> <span class="self">self</span>.<span class="ident">models</span>.<span class="ident">contains_key</span>(<span class="kw-2">&amp;</span><span class="ident">name</span>) {
             <span class="macro">format!</span>(<span class="string">&quot;{}_&quot;</span>, <span class="ident">name</span>)
@@ -660,8 +724,9 @@
         <span class="ident">Name::CompositeType</span>(<span class="ident">name</span>)
     }
 
+    <span class="doccomment">/// Tracking the usage of types and names in a composite type.</span>
     <span class="kw">fn</span> <span class="ident">track_composite_type_fields</span>(
-        <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>,
+        <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
         <span class="ident">model</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>,
         <span class="ident">field</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>,
         <span class="ident">document</span>: <span class="kw-2">&amp;</span><span class="ident">Document</span>,
@@ -671,8 +736,12 @@
         <span class="self">self</span>.<span class="ident">track_document_types</span>(<span class="ident">name</span>, <span class="ident">document</span>, <span class="ident">depth</span>);
     }
 
+    <span class="doccomment">/// If a document has a nested document, we&#39;ll introspect it as a composite</span>
+    <span class="doccomment">/// type until a certain depth. The depth can be given by user, and if we</span>
+    <span class="doccomment">/// reach enough nesting the following composite types are introspected as</span>
+    <span class="doccomment">/// `Json`.</span>
     <span class="kw">fn</span> <span class="ident">find_and_track_composite_types</span>(
-        <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>,
+        <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
         <span class="ident">model</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>,
         <span class="ident">field</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>,
         <span class="ident">bson</span>: <span class="kw-2">&amp;</span><span class="ident">Bson</span>,
@@ -707,7 +776,7 @@
     }
 
     <span class="doccomment">/// Track all fields and field types from the given document.</span>
-    <span class="kw">fn</span> <span class="ident">track_document_types</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">name</span>: <span class="ident">Name</span>, <span class="ident">document</span>: <span class="kw-2">&amp;</span><span class="ident">Document</span>, <span class="ident">depth</span>: <span class="ident">CompositeTypeDepth</span>) {
+    <span class="kw">fn</span> <span class="ident">track_document_types</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">name</span>: <span class="ident">Name</span>, <span class="ident">document</span>: <span class="kw-2">&amp;</span><span class="ident">Document</span>, <span class="ident">depth</span>: <span class="ident">CompositeTypeDepth</span>) {
         <span class="kw">if</span> <span class="ident">name</span>.<span class="ident">is_composite_type</span>() <span class="op">&amp;&amp;</span> <span class="ident">depth</span>.<span class="ident">is_none</span>() {
             <span class="kw">return</span>;
         }
@@ -729,26 +798,53 @@
                 <span class="prelude-val">None</span>
             };
 
-            <span class="kw">let</span> <span class="ident">sampler</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">fields</span>.<span class="ident">entry</span>((<span class="ident">name</span>.<span class="ident">clone</span>(), <span class="ident">field</span>.<span class="ident">to_string</span>())).<span class="ident">or_default</span>();
+            <span class="kw">let</span> <span class="ident">sampler</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">samples</span>.<span class="ident">entry</span>((<span class="ident">name</span>.<span class="ident">clone</span>(), <span class="ident">field</span>.<span class="ident">to_string</span>())).<span class="ident">or_default</span>();
             <span class="ident">sampler</span>.<span class="ident">counter</span> <span class="op">+</span><span class="op">=</span> <span class="number">1</span>;
 
             <span class="kw">match</span> <span class="ident">FieldType::from_bson</span>(<span class="ident">val</span>, <span class="ident">compound_name</span>) {
-                <span class="prelude-val">Some</span>(<span class="kw">_</span>) <span class="kw">if</span> <span class="ident">found_composite</span> <span class="op">&amp;&amp;</span> <span class="ident">array_layers</span> <span class="op">&gt;</span> <span class="number">1</span> =&gt; {
-                    <span class="kw">let</span> <span class="ident">counter</span> <span class="op">=</span> <span class="ident">sampler</span>
-                        .<span class="ident">types</span>
-                        .<span class="ident">entry</span>(<span class="ident">FieldType::Array</span>(<span class="ident">Box::new</span>(<span class="ident">FieldType::Json</span>)))
-                        .<span class="ident">or_default</span>();
+                <span class="comment">// We cannot have arrays of arrays, so multi-dimensional arrays</span>
+                <span class="comment">// are introspected as `Json`.</span>
+                <span class="prelude-val">Some</span>(<span class="kw">_</span>) <span class="kw">if</span> <span class="ident">array_layers</span> <span class="op">&gt;</span> <span class="number">1</span> =&gt; {
+                    <span class="kw">let</span> <span class="ident">counter</span> <span class="op">=</span> <span class="ident">sampler</span>.<span class="ident">types</span>.<span class="ident">entry</span>(<span class="ident">FieldType::Json</span>).<span class="ident">or_default</span>();
                     <span class="kw-2">*</span><span class="ident">counter</span> <span class="op">+</span><span class="op">=</span> <span class="number">1</span>;
                 }
+                <span class="comment">// Counting the types.</span>
                 <span class="prelude-val">Some</span>(<span class="ident">field_type</span>) =&gt; {
                     <span class="kw">let</span> <span class="ident">counter</span> <span class="op">=</span> <span class="ident">sampler</span>.<span class="ident">types</span>.<span class="ident">entry</span>(<span class="ident">field_type</span>).<span class="ident">or_default</span>();
                     <span class="kw-2">*</span><span class="ident">counter</span> <span class="op">+</span><span class="op">=</span> <span class="number">1</span>;
                 }
+                <span class="comment">// If the value is null, the field must be optional and we</span>
+                <span class="comment">// cannot detect the type.</span>
                 <span class="prelude-val">None</span> =&gt; {
                     <span class="ident">sampler</span>.<span class="ident">nullable</span> <span class="op">=</span> <span class="bool-val">true</span>;
                 }
             }
         }
+    }
+}
+
+<span class="doccomment">/// A document must have a id column and the name is always `_id`. If we have no</span>
+<span class="doccomment">/// data in the collection, we must assume an id field exists.</span>
+<span class="kw">fn</span> <span class="ident">add_missing_ids_to_models</span>(<span class="ident">models</span>: <span class="kw-2">&amp;mut</span> <span class="ident">BTreeMap</span><span class="op">&lt;</span><span class="ident">String</span>, <span class="ident">Model</span><span class="op">&gt;</span>) {
+    <span class="kw">for</span> (<span class="kw">_</span>, <span class="ident">model</span>) <span class="kw">in</span> <span class="ident">models</span>.<span class="ident">iter_mut</span>() {
+        <span class="kw">if</span> <span class="ident">model</span>.<span class="ident">fields</span>.<span class="ident">iter</span>().<span class="ident">any</span>(<span class="op">|</span><span class="ident">f</span><span class="op">|</span> <span class="ident">f</span>.<span class="ident">database_name</span>() <span class="op">==</span> <span class="prelude-val">Some</span>(<span class="string">&quot;_id&quot;</span>)) {
+            <span class="kw">continue</span>;
+        }
+
+        <span class="kw">let</span> <span class="ident">field</span> <span class="op">=</span> <span class="ident">ScalarField</span> {
+            <span class="ident">name</span>: <span class="ident">String::from</span>(<span class="string">&quot;id&quot;</span>),
+            <span class="ident">field_type</span>: <span class="ident">dml::FieldType::from</span>(<span class="ident">FieldType::ObjectId</span>),
+            <span class="ident">arity</span>: <span class="ident">FieldArity::Required</span>,
+            <span class="ident">database_name</span>: <span class="prelude-val">Some</span>(<span class="ident">String::from</span>(<span class="string">&quot;_id&quot;</span>)),
+            <span class="ident">default_value</span>: <span class="prelude-val">Some</span>(<span class="ident">DefaultValue::new_expression</span>(<span class="ident">ValueGenerator::new_auto</span>())),
+            <span class="ident">documentation</span>: <span class="prelude-val">None</span>,
+            <span class="ident">is_generated</span>: <span class="bool-val">false</span>,
+            <span class="ident">is_updated_at</span>: <span class="bool-val">false</span>,
+            <span class="ident">is_commented_out</span>: <span class="bool-val">false</span>,
+            <span class="ident">is_ignored</span>: <span class="bool-val">false</span>,
+        };
+
+        <span class="ident">model</span>.<span class="ident">fields</span>.<span class="ident">insert</span>(<span class="number">0</span>, <span class="ident">Field::ScalarField</span>(<span class="ident">field</span>));
     }
 }
 
@@ -760,6 +856,7 @@
 }
 
 <span class="kw">impl</span> <span class="ident">FieldSampler</span> {
+    <span class="doccomment">/// Counting the percentages of different types per field.</span>
     <span class="kw">fn</span> <span class="ident">percentages</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">FieldPercentages</span> {
         <span class="kw">let</span> <span class="ident">total</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">types</span>.<span class="ident">iter</span>().<span class="ident">fold</span>(<span class="number">0</span>, <span class="op">|</span><span class="ident">acc</span>, (<span class="kw">_</span>, <span class="ident">count</span>)<span class="op">|</span> <span class="ident">acc</span> <span class="op">+</span> <span class="ident">count</span>);
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">data</span> <span class="op">=</span> <span class="ident">BTreeMap::new</span>();
@@ -779,7 +876,7 @@
 }
 
 <span class="kw">impl</span> <span class="ident">fmt::Display</span> <span class="kw">for</span> <span class="ident">FieldPercentages</span> {
-    <span class="kw">fn</span> <span class="ident">fmt</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">f</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">fmt::Formatter</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>) -&gt; <span class="ident">fmt::Result</span> {
+    <span class="kw">fn</span> <span class="ident">fmt</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">f</span>: <span class="kw-2">&amp;mut</span> <span class="ident">fmt::Formatter</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>) -&gt; <span class="ident">fmt::Result</span> {
         <span class="kw">for</span> (<span class="ident">i</span>, (<span class="ident">k</span>, <span class="ident">v</span>)) <span class="kw">in</span> <span class="self">self</span>.<span class="ident">data</span>.<span class="ident">iter</span>().<span class="ident">enumerate</span>() {
             <span class="kw">let</span> <span class="ident">p</span> <span class="op">=</span> (<span class="kw-2">*</span><span class="ident">v</span> <span class="op">*</span> <span class="number">1000.0</span>).<span class="ident">round</span>() <span class="op">/</span> <span class="number">10.0</span>;
             <span class="macro">write!</span>(<span class="ident">f</span>, <span class="string">&quot;{}: {}%&quot;</span>, <span class="ident">k</span>, <span class="ident">p</span>)<span class="question-mark">?</span>;
@@ -806,6 +903,13 @@
     <span class="kw">fn</span> <span class="ident">has_type_variety</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">bool</span> {
         <span class="self">self</span>.<span class="ident">data</span>.<span class="ident">len</span>() <span class="op">&gt;</span> <span class="number">1</span>
     }
+
+    <span class="doccomment">/// All instances we found were either of `Date` or `Timestamp` type.</span>
+    <span class="kw">fn</span> <span class="ident">all_types_are_datetimes</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">bool</span> {
+        <span class="self">self</span>.<span class="ident">data</span>
+            .<span class="ident">iter</span>()
+            .<span class="ident">all</span>(<span class="op">|</span>(<span class="ident">typ</span>, <span class="kw">_</span>)<span class="op">|</span> <span class="macro">matches!</span>(<span class="ident">typ</span>, <span class="ident">FieldType::Date</span> <span class="op">|</span> <span class="ident">FieldType::Timestamp</span>))
+    }
 }
 
 <span class="kw">fn</span> <span class="ident">new_composite_type</span>(<span class="ident">type_name</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>) -&gt; <span class="ident">CompositeType</span> {
@@ -825,24 +929,8 @@
             <span class="ident">length</span>: <span class="prelude-val">None</span>,
         }],
         <span class="ident">defined_on_field</span>: <span class="bool-val">true</span>,
+        <span class="ident">clustered</span>: <span class="prelude-val">None</span>,
     };
-
-    <span class="kw">let</span> <span class="ident">field_type</span> <span class="op">=</span> <span class="ident">datamodel::FieldType::Scalar</span>(
-        <span class="ident">ScalarType::String</span>,
-        <span class="prelude-val">None</span>,
-        <span class="prelude-val">Some</span>(<span class="ident">NativeTypeInstance::new</span>(<span class="string">&quot;ObjectId&quot;</span>, <span class="ident">Vec::new</span>(), <span class="kw-2">&amp;</span><span class="ident">MongoDbType::ObjectId</span>)),
-    );
-
-    <span class="kw">let</span> <span class="ident">primary_key_field</span> <span class="op">=</span> <span class="ident">Field::ScalarField</span>({
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">sf</span> <span class="op">=</span> <span class="ident">ScalarField::new</span>(<span class="string">&quot;id&quot;</span>, <span class="ident">datamodel::FieldArity::Required</span>, <span class="ident">field_type</span>);
-
-        <span class="ident">sf</span>.<span class="ident">set_database_name</span>(<span class="prelude-val">Some</span>(<span class="string">&quot;_id&quot;</span>.<span class="ident">to_string</span>()));
-        <span class="ident">sf</span>.<span class="ident">set_default_value</span>(<span class="ident">DefaultValue::new_expression</span>(
-            <span class="ident">ValueGenerator::new</span>(<span class="string">&quot;dbgenerated&quot;</span>.<span class="ident">to_owned</span>(), <span class="ident">Vec::new</span>()).<span class="ident">unwrap</span>(),
-        ));
-
-        <span class="ident">sf</span>
-    });
 
     <span class="kw">let</span> (<span class="ident">name</span>, <span class="ident">database_name</span>, <span class="ident">documentation</span>) <span class="op">=</span> <span class="kw">match</span> <span class="ident">sanitize_string</span>(<span class="ident">model_name</span>) {
         <span class="prelude-val">Some</span>(<span class="ident">sanitized</span>) =&gt; (<span class="ident">Cow::from</span>(<span class="ident">sanitized</span>), <span class="prelude-val">Some</span>(<span class="ident">model_name</span>.<span class="ident">to_string</span>()), <span class="prelude-val">None</span>),
@@ -861,55 +949,238 @@
     <span class="ident">Model</span> {
         <span class="ident">name</span>: <span class="ident">name</span>.<span class="ident">to_string</span>(),
         <span class="ident">primary_key</span>: <span class="prelude-val">Some</span>(<span class="ident">primary_key</span>),
-        <span class="ident">fields</span>: <span class="macro">vec!</span>[<span class="ident">primary_key_field</span>],
+        <span class="ident">fields</span>: <span class="macro">vec!</span>[],
         <span class="ident">database_name</span>,
         <span class="ident">documentation</span>,
         ..<span class="ident">Default::default</span>()
     }
 }
 
-<span class="kw">fn</span> <span class="ident">add_indices_to_models</span>(<span class="ident">models</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">BTreeMap</span><span class="op">&lt;</span><span class="ident">String</span>, <span class="ident">Model</span><span class="op">&gt;</span>, <span class="ident">indices</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">BTreeMap</span><span class="op">&lt;</span><span class="ident">String</span>, <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">IndexWalker</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="op">&gt;</span>) {
-    <span class="kw">for</span> (<span class="ident">model_name</span>, <span class="ident">model</span>) <span class="kw">in</span> <span class="ident">models</span>.<span class="ident">iter_mut</span>() {
-        <span class="kw">for</span> <span class="ident">index</span> <span class="kw">in</span> <span class="ident">indices</span>.<span class="ident">remove</span>(<span class="ident">model_name</span>).<span class="ident">into_iter</span>().<span class="ident">flat_map</span>(<span class="op">|</span><span class="ident">i</span><span class="op">|</span> <span class="ident">i</span>.<span class="ident">into_iter</span>()) {
-            <span class="kw">let</span> <span class="ident">defined_on_field</span> <span class="op">=</span> <span class="ident">index</span>.<span class="ident">fields</span>().<span class="ident">len</span>() <span class="op">==</span> <span class="number">1</span>;
+<span class="doccomment">/// Read all samples from the data, returning models and composite types.</span>
+<span class="doccomment">///</span>
+<span class="doccomment">/// ## Input</span>
+<span class="doccomment">///</span>
+<span class="doccomment">/// - Samples, counting how many documents altogether there was in the model or</span>
+<span class="doccomment">///   in how many documents we had data for the composite type.</span>
+<span class="doccomment">/// - Fields counts from model or type and field name combination to statistics</span>
+<span class="doccomment">///   of different types seen in the data.</span>
+<span class="kw">fn</span> <span class="ident">populate_fields</span>(
+    <span class="ident">samples</span>: <span class="kw-2">&amp;</span><span class="ident">HashMap</span><span class="op">&lt;</span><span class="ident">Name</span>, <span class="ident">usize</span><span class="op">&gt;</span>,
+    <span class="ident">fields</span>: <span class="ident">BTreeMap</span><span class="op">&lt;</span>(<span class="ident">Name</span>, <span class="ident">String</span>), <span class="ident">FieldSampler</span><span class="op">&gt;</span>,
+    <span class="ident">warnings</span>: <span class="kw-2">&amp;mut</span> <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">Warning</span><span class="op">&gt;</span>,
+) -&gt; (<span class="ident">BTreeMap</span><span class="op">&lt;</span><span class="ident">String</span>, <span class="ident">Model</span><span class="op">&gt;</span>, <span class="ident">BTreeMap</span><span class="op">&lt;</span><span class="ident">String</span>, <span class="ident">CompositeType</span><span class="op">&gt;</span>) {
+    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">models</span>: <span class="ident">BTreeMap</span><span class="op">&lt;</span><span class="ident">String</span>, <span class="ident">Model</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">samples</span>
+        .<span class="ident">iter</span>()
+        .<span class="ident">flat_map</span>(<span class="op">|</span>(<span class="ident">name</span>, <span class="kw">_</span>)<span class="op">|</span> <span class="ident">name</span>.<span class="ident">as_model_name</span>())
+        .<span class="ident">map</span>(<span class="op">|</span><span class="ident">model_name</span><span class="op">|</span> (<span class="ident">model_name</span>.<span class="ident">to_string</span>(), <span class="ident">new_model</span>(<span class="ident">model_name</span>)))
+        .<span class="ident">collect</span>();
 
-            <span class="kw">if</span> <span class="op">!</span><span class="ident">index</span>.<span class="ident">fields</span>().<span class="ident">all</span>(<span class="op">|</span><span class="ident">indf</span><span class="op">|</span> {
-                <span class="ident">model</span>
-                    .<span class="ident">fields</span>
-                    .<span class="ident">iter</span>()
-                    .<span class="ident">any</span>(<span class="op">|</span><span class="ident">mf</span><span class="op">|</span> <span class="ident">mf</span>.<span class="ident">name</span>() <span class="op">==</span> <span class="ident">indf</span>.<span class="ident">name</span>() <span class="op">|</span><span class="op">|</span> <span class="ident">mf</span>.<span class="ident">database_name</span>() <span class="op">==</span> <span class="prelude-val">Some</span>(<span class="ident">indf</span>.<span class="ident">name</span>()))
-            }) {
-                <span class="kw">continue</span>;
+    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">types</span>: <span class="ident">BTreeMap</span><span class="op">&lt;</span><span class="ident">String</span>, <span class="ident">CompositeType</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">samples</span>
+        .<span class="ident">iter</span>()
+        .<span class="ident">flat_map</span>(<span class="op">|</span>(<span class="ident">name</span>, <span class="kw">_</span>)<span class="op">|</span> <span class="ident">name</span>.<span class="ident">as_type_name</span>())
+        .<span class="ident">map</span>(<span class="op">|</span><span class="ident">type_name</span><span class="op">|</span> (<span class="ident">type_name</span>.<span class="ident">to_string</span>(), <span class="ident">new_composite_type</span>(<span class="ident">type_name</span>)))
+        .<span class="ident">collect</span>();
+
+    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">unsupported</span> <span class="op">=</span> <span class="ident">Vec::new</span>();
+    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">unknown_types</span> <span class="op">=</span> <span class="ident">Vec::new</span>();
+    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">undecided_types</span> <span class="op">=</span> <span class="ident">Vec::new</span>();
+    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">fields_with_empty_names</span> <span class="op">=</span> <span class="ident">Vec::new</span>();
+
+    <span class="kw">for</span> ((<span class="ident">container</span>, <span class="ident">field_name</span>), <span class="ident">sampler</span>) <span class="kw">in</span> <span class="ident">fields</span>.<span class="ident">into_iter</span>() {
+        <span class="kw">let</span> <span class="ident">doc_count</span> <span class="op">=</span> <span class="kw-2">*</span><span class="ident">samples</span>.<span class="ident">get</span>(<span class="kw-2">&amp;</span><span class="ident">container</span>).<span class="ident">unwrap_or</span>(<span class="kw-2">&amp;</span><span class="number">0</span>);
+        <span class="kw">let</span> <span class="ident">field_count</span> <span class="op">=</span> <span class="ident">sampler</span>.<span class="ident">counter</span>;
+
+        <span class="kw">let</span> <span class="ident">percentages</span> <span class="op">=</span> <span class="ident">sampler</span>.<span class="ident">percentages</span>();
+        <span class="kw">let</span> <span class="ident">most_common_type</span> <span class="op">=</span> <span class="ident">percentages</span>.<span class="ident">find_most_common</span>();
+
+        <span class="kw">let</span> <span class="ident">field_type</span> <span class="op">=</span> <span class="kw">match</span> <span class="kw-2">&amp;</span><span class="ident">most_common_type</span> {
+            <span class="prelude-val">Some</span>(<span class="ident">field_type</span>) <span class="kw">if</span> <span class="op">!</span><span class="ident">percentages</span>.<span class="ident">has_type_variety</span>() =&gt; <span class="ident">field_type</span>.<span class="ident">to_owned</span>(),
+            <span class="prelude-val">Some</span>(<span class="kw">_</span>) <span class="kw">if</span> <span class="ident">percentages</span>.<span class="ident">all_types_are_datetimes</span>() =&gt; <span class="ident">FieldType::Timestamp</span>,
+            <span class="kw">_</span> =&gt; <span class="ident">FieldType::Json</span>,
+        };
+
+        <span class="kw">if</span> <span class="kw">let</span> <span class="ident">FieldType::Unsupported</span>(<span class="ident">r#type</span>) <span class="op">=</span> <span class="ident">field_type</span> {
+            <span class="ident">unsupported</span>.<span class="ident">push</span>((<span class="ident">container</span>.<span class="ident">clone</span>(), <span class="ident">field_name</span>.<span class="ident">to_string</span>(), <span class="ident">r#type</span>));
+        }
+
+        <span class="kw">if</span> <span class="ident">percentages</span>.<span class="ident">data</span>.<span class="ident">len</span>() <span class="op">&gt;</span> <span class="number">1</span> {
+            <span class="ident">undecided_types</span>.<span class="ident">push</span>((<span class="ident">container</span>.<span class="ident">clone</span>(), <span class="ident">field_name</span>.<span class="ident">to_string</span>(), <span class="ident">field_type</span>.<span class="ident">to_string</span>()));
+        }
+
+        <span class="kw">let</span> <span class="ident">arity</span> <span class="op">=</span> <span class="kw">if</span> <span class="ident">field_type</span>.<span class="ident">is_array</span>() {
+            <span class="ident">FieldArity::List</span>
+        } <span class="kw">else</span> <span class="kw">if</span> <span class="ident">doc_count</span> <span class="op">&gt;</span> <span class="ident">field_count</span> <span class="op">|</span><span class="op">|</span> <span class="ident">sampler</span>.<span class="ident">nullable</span> {
+            <span class="ident">FieldArity::Optional</span>
+        } <span class="kw">else</span> {
+            <span class="ident">FieldArity::Required</span>
+        };
+
+        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">documentation</span> <span class="op">=</span> <span class="kw">if</span> <span class="ident">percentages</span>.<span class="ident">has_type_variety</span>() {
+            <span class="prelude-val">Some</span>(<span class="macro">format!</span>(
+                <span class="string">&quot;Multiple data types found: {} out of {} sampled entries&quot;</span>,
+                <span class="ident">percentages</span>, <span class="ident">field_count</span>
+            ))
+        } <span class="kw">else</span> {
+            <span class="prelude-val">None</span>
+        };
+
+        <span class="kw">if</span> <span class="ident">most_common_type</span>.<span class="ident">is_none</span>() {
+            <span class="kw">static</span> <span class="ident">UNKNOWN_FIELD</span>: <span class="kw-2">&amp;</span><span class="ident">str</span> <span class="op">=</span>
+                <span class="string">&quot;Could not determine type: the field only had null or empty values in the sample set.&quot;</span>;
+
+            <span class="kw">match</span> <span class="kw-2">&amp;mut</span> <span class="ident">documentation</span> {
+                <span class="prelude-val">Some</span>(<span class="ident">docs</span>) =&gt; {
+                    <span class="ident">docs</span>.<span class="ident">push</span>(<span class="string">&#39;\n&#39;</span>);
+                    <span class="ident">docs</span>.<span class="ident">push_str</span>(<span class="ident">UNKNOWN_FIELD</span>);
+                }
+                <span class="prelude-val">None</span> =&gt; {
+                    <span class="ident">documentation</span> <span class="op">=</span> <span class="prelude-val">Some</span>(<span class="ident">UNKNOWN_FIELD</span>.<span class="ident">to_owned</span>());
+                }
             }
 
-            <span class="kw">let</span> <span class="ident">fields</span> <span class="op">=</span> <span class="ident">index</span>
-                .<span class="ident">fields</span>()
-                .<span class="ident">map</span>(<span class="op">|</span><span class="ident">f</span><span class="op">|</span> <span class="ident">IndexField</span> {
-                    <span class="ident">name</span>: <span class="ident">sanitize_string</span>(<span class="ident">f</span>.<span class="ident">name</span>()).<span class="ident">unwrap_or_else</span>(<span class="op">|</span><span class="op">|</span> <span class="ident">f</span>.<span class="ident">name</span>().<span class="ident">to_string</span>()),
-                    <span class="ident">sort_order</span>: <span class="kw">match</span> <span class="ident">f</span>.<span class="ident">property</span> {
-                        <span class="ident">IndexFieldProperty::Text</span> =&gt; <span class="prelude-val">None</span>,
-                        <span class="ident">IndexFieldProperty::Ascending</span> =&gt; <span class="prelude-val">Some</span>(<span class="ident">SortOrder::Asc</span>),
-                        <span class="ident">IndexFieldProperty::Descending</span> =&gt; <span class="prelude-val">Some</span>(<span class="ident">SortOrder::Desc</span>),
-                    },
-                    <span class="ident">length</span>: <span class="prelude-val">None</span>,
-                })
-                .<span class="ident">collect</span>();
-
-            <span class="kw">let</span> <span class="ident">tpe</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">index</span>.<span class="ident">r#type</span>() {
-                <span class="ident">mongodb_schema_describer::IndexType::Normal</span> =&gt; <span class="ident">IndexType::Normal</span>,
-                <span class="ident">mongodb_schema_describer::IndexType::Unique</span> =&gt; <span class="ident">IndexType::Unique</span>,
-                <span class="ident">mongodb_schema_describer::IndexType::Fulltext</span> =&gt; <span class="ident">IndexType::Fulltext</span>,
-            };
-
-            <span class="ident">model</span>.<span class="ident">add_index</span>(<span class="ident">IndexDefinition</span> {
-                <span class="ident">fields</span>,
-                <span class="ident">tpe</span>,
-                <span class="ident">defined_on_field</span>,
-                <span class="ident">db_name</span>: <span class="prelude-val">Some</span>(<span class="ident">index</span>.<span class="ident">name</span>().<span class="ident">to_string</span>()),
-                <span class="ident">name</span>: <span class="prelude-val">None</span>,
-                <span class="ident">algorithm</span>: <span class="prelude-val">None</span>,
-            });
+            <span class="ident">unknown_types</span>.<span class="ident">push</span>((<span class="ident">container</span>.<span class="ident">clone</span>(), <span class="ident">field_name</span>.<span class="ident">to_string</span>()));
         }
+
+        <span class="kw">let</span> (<span class="ident">name</span>, <span class="ident">database_name</span>, <span class="ident">is_commented_out</span>) <span class="op">=</span> <span class="kw">match</span> <span class="ident">sanitize_string</span>(<span class="kw-2">&amp;</span><span class="ident">field_name</span>) {
+            <span class="prelude-val">Some</span>(<span class="ident">sanitized</span>) <span class="kw">if</span> <span class="ident">sanitized</span>.<span class="ident">is_empty</span>() =&gt; {
+                <span class="kw">match</span> <span class="ident">documentation</span>.<span class="ident">as_mut</span>() {
+                    <span class="prelude-val">Some</span>(<span class="kw-2">ref</span> <span class="kw-2">mut</span> <span class="ident">existing</span>) =&gt; {
+                        <span class="ident">existing</span>.<span class="ident">push</span>(<span class="string">&#39;\n&#39;</span>);
+                        <span class="ident">existing</span>.<span class="ident">push_str</span>(<span class="ident">COMMENTED_OUT_FIELD</span>);
+                    }
+                    <span class="prelude-val">None</span> =&gt; {
+                        <span class="ident">documentation</span> <span class="op">=</span> <span class="prelude-val">Some</span>(<span class="ident">COMMENTED_OUT_FIELD</span>.<span class="ident">to_string</span>());
+                    }
+                };
+
+                <span class="ident">fields_with_empty_names</span>.<span class="ident">push</span>((<span class="ident">container</span>.<span class="ident">clone</span>(), <span class="ident">field_name</span>.<span class="ident">clone</span>()));
+
+                (<span class="ident">field_name</span>.<span class="ident">clone</span>(), <span class="prelude-val">Some</span>(<span class="ident">field_name</span>), <span class="bool-val">true</span>)
+            }
+            <span class="prelude-val">Some</span>(<span class="ident">sanitized</span>) =&gt; (<span class="ident">sanitized</span>, <span class="prelude-val">Some</span>(<span class="ident">field_name</span>), <span class="bool-val">false</span>),
+            <span class="prelude-val">None</span> <span class="kw">if</span> <span class="macro">matches!</span>(<span class="ident">container</span>, <span class="ident">Name::Model</span>(<span class="kw">_</span>)) <span class="op">&amp;&amp;</span> <span class="ident">field_name</span> <span class="op">==</span> <span class="string">&quot;id&quot;</span> =&gt; {
+                (<span class="string">&quot;id_&quot;</span>.<span class="ident">to_string</span>(), <span class="prelude-val">Some</span>(<span class="ident">field_name</span>), <span class="bool-val">false</span>)
+            }
+            <span class="prelude-val">None</span> =&gt; (<span class="ident">field_name</span>, <span class="prelude-val">None</span>, <span class="bool-val">false</span>),
+        };
+
+        <span class="kw">match</span> <span class="ident">container</span> {
+            <span class="ident">Name::Model</span>(<span class="ident">model_name</span>) =&gt; {
+                <span class="kw">let</span> <span class="ident">model</span> <span class="op">=</span> <span class="ident">models</span>.<span class="ident">get_mut</span>(<span class="kw-2">&amp;</span><span class="ident">model_name</span>).<span class="ident">unwrap</span>();
+
+                <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">field</span> <span class="op">=</span> <span class="ident">ScalarField</span> {
+                    <span class="ident">name</span>,
+                    <span class="ident">field_type</span>: <span class="ident">dml::FieldType::from</span>(<span class="ident">field_type</span>.<span class="ident">clone</span>()),
+                    <span class="ident">arity</span>,
+                    <span class="ident">database_name</span>,
+                    <span class="ident">default_value</span>: <span class="prelude-val">None</span>,
+                    <span class="ident">documentation</span>,
+                    <span class="ident">is_generated</span>: <span class="bool-val">false</span>,
+                    <span class="ident">is_updated_at</span>: <span class="bool-val">false</span>,
+                    <span class="ident">is_commented_out</span>,
+                    <span class="ident">is_ignored</span>: <span class="bool-val">false</span>,
+                };
+
+                <span class="kw">match</span> <span class="kw-2">&amp;</span><span class="ident">field</span>.<span class="ident">database_name</span> {
+                    <span class="prelude-val">Some</span>(<span class="ident">name</span>) <span class="kw">if</span> <span class="ident">name</span> <span class="op">==</span> <span class="string">&quot;_id&quot;</span> =&gt; {
+                        <span class="kw">if</span> <span class="kw">let</span> <span class="ident">FieldType::ObjectId</span> <span class="op">=</span> <span class="kw-2">&amp;</span><span class="ident">field_type</span> {
+                            <span class="ident">field</span>.<span class="ident">set_default_value</span>(<span class="ident">DefaultValue::new_expression</span>(<span class="ident">ValueGenerator::new_auto</span>()));
+                        };
+
+                        <span class="ident">model</span>.<span class="ident">fields</span>.<span class="ident">insert</span>(<span class="number">0</span>, <span class="ident">Field::ScalarField</span>(<span class="ident">field</span>));
+                    }
+                    <span class="kw">_</span> =&gt; <span class="ident">model</span>.<span class="ident">fields</span>.<span class="ident">push</span>(<span class="ident">Field::ScalarField</span>(<span class="ident">field</span>)),
+                };
+            }
+            <span class="ident">Name::CompositeType</span>(<span class="ident">type_name</span>) =&gt; {
+                <span class="kw">let</span> <span class="ident">r#type</span> <span class="op">=</span> <span class="ident">types</span>.<span class="ident">get_mut</span>(<span class="kw-2">&amp;</span><span class="ident">type_name</span>).<span class="ident">unwrap</span>();
+
+                <span class="ident">r#type</span>.<span class="ident">fields</span>.<span class="ident">push</span>(<span class="ident">CompositeTypeField</span> {
+                    <span class="ident">name</span>,
+                    <span class="ident">r#type</span>: <span class="ident">field_type</span>.<span class="ident">into</span>(),
+                    <span class="ident">default_value</span>: <span class="prelude-val">None</span>,
+                    <span class="ident">arity</span>,
+                    <span class="ident">documentation</span>,
+                    <span class="ident">database_name</span>,
+                    <span class="ident">is_commented_out</span>,
+                });
+            }
+        }
+    }
+
+    <span class="kw">if</span> <span class="op">!</span><span class="ident">unsupported</span>.<span class="ident">is_empty</span>() {
+        <span class="ident">warnings</span>.<span class="ident">push</span>(<span class="ident"><span class="kw">crate</span>::warnings::unsupported_type</span>(<span class="kw-2">&amp;</span><span class="ident">unsupported</span>));
+    }
+
+    <span class="kw">if</span> <span class="op">!</span><span class="ident">undecided_types</span>.<span class="ident">is_empty</span>() {
+        <span class="ident">warnings</span>.<span class="ident">push</span>(<span class="ident"><span class="kw">crate</span>::warnings::undecided_field_type</span>(<span class="kw-2">&amp;</span><span class="ident">undecided_types</span>));
+    }
+
+    <span class="kw">if</span> <span class="op">!</span><span class="ident">fields_with_empty_names</span>.<span class="ident">is_empty</span>() {
+        <span class="ident">warnings</span>.<span class="ident">push</span>(<span class="ident"><span class="kw">crate</span>::warnings::fields_with_empty_names</span>(<span class="kw-2">&amp;</span><span class="ident">fields_with_empty_names</span>));
+    }
+
+    <span class="kw">if</span> <span class="op">!</span><span class="ident">unknown_types</span>.<span class="ident">is_empty</span>() {
+        <span class="ident">warnings</span>.<span class="ident">push</span>(<span class="ident"><span class="kw">crate</span>::warnings::fields_with_unknown_types</span>(<span class="kw-2">&amp;</span><span class="ident">unknown_types</span>));
+    }
+
+    <span class="ident">filter_out_empty_types</span>(<span class="kw-2">&amp;mut</span> <span class="ident">models</span>, <span class="kw-2">&amp;mut</span> <span class="ident">types</span>, <span class="ident">warnings</span>);
+
+    (<span class="ident">models</span>, <span class="ident">types</span>)
+}
+
+<span class="doccomment">/// From the resulting data model, remove all types with no fields and change</span>
+<span class="doccomment">/// the field types to Json.</span>
+<span class="kw">fn</span> <span class="ident">filter_out_empty_types</span>(
+    <span class="ident">models</span>: <span class="kw-2">&amp;mut</span> <span class="ident">BTreeMap</span><span class="op">&lt;</span><span class="ident">String</span>, <span class="ident">Model</span><span class="op">&gt;</span>,
+    <span class="ident">types</span>: <span class="kw-2">&amp;mut</span> <span class="ident">BTreeMap</span><span class="op">&lt;</span><span class="ident">String</span>, <span class="ident">CompositeType</span><span class="op">&gt;</span>,
+    <span class="ident">warnings</span>: <span class="kw-2">&amp;mut</span> <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">Warning</span><span class="op">&gt;</span>,
+) {
+    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">fields_with_an_empty_type</span> <span class="op">=</span> <span class="ident">Vec::new</span>();
+
+    <span class="comment">// 1. remove all types that have no fields.</span>
+    <span class="kw">let</span> <span class="ident">empty_types</span>: <span class="ident">HashSet</span><span class="op">&lt;</span><span class="kw">_</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">types</span>
+        .<span class="ident">iter</span>()
+        .<span class="ident">filter</span>(<span class="op">|</span>(<span class="kw">_</span>, <span class="ident">r#type</span>)<span class="op">|</span> <span class="ident">r#type</span>.<span class="ident">fields</span>.<span class="ident">is_empty</span>())
+        .<span class="ident">map</span>(<span class="op">|</span>(<span class="ident">name</span>, <span class="kw">_</span>)<span class="op">|</span> <span class="ident">name</span>.<span class="ident">to_owned</span>())
+        .<span class="ident">collect</span>();
+
+    <span class="comment">// https://github.com/rust-lang/rust/issues/70530</span>
+    <span class="ident">types</span>.<span class="ident">retain</span>(<span class="op">|</span><span class="kw">_</span>, <span class="ident">r#type</span><span class="op">|</span> <span class="op">!</span><span class="ident">r#type</span>.<span class="ident">fields</span>.<span class="ident">is_empty</span>());
+
+    <span class="comment">// 2. change all fields in models that point to a non-existing type to Json.</span>
+    <span class="kw">for</span> (<span class="ident">model_name</span>, <span class="ident">model</span>) <span class="kw">in</span> <span class="ident">models</span>.<span class="ident">iter_mut</span>() {
+        <span class="kw">for</span> <span class="ident">field</span> <span class="kw">in</span> <span class="ident">model</span>.<span class="ident">fields</span>.<span class="ident">iter_mut</span>().<span class="ident">filter_map</span>(<span class="op">|</span><span class="ident">f</span><span class="op">|</span> <span class="ident">f</span>.<span class="ident">as_scalar_field_mut</span>()) {
+            <span class="kw">match</span> <span class="kw-2">&amp;</span><span class="ident">field</span>.<span class="ident">field_type</span> {
+                <span class="ident">dml::FieldType::CompositeType</span>(<span class="ident">ct</span>) <span class="kw">if</span> <span class="ident">empty_types</span>.<span class="ident">contains</span>(<span class="ident">ct</span>) =&gt; {
+                    <span class="ident">fields_with_an_empty_type</span>.<span class="ident">push</span>((<span class="ident">Name::Model</span>(<span class="ident">model_name</span>.<span class="ident">clone</span>()), <span class="ident">field</span>.<span class="ident">name</span>.<span class="ident">clone</span>()));
+                    <span class="ident">field</span>.<span class="ident">field_type</span> <span class="op">=</span> <span class="ident">dml::FieldType::Scalar</span>(<span class="ident">ScalarType::Json</span>, <span class="prelude-val">None</span>, <span class="prelude-val">None</span>);
+                    <span class="ident">field</span>.<span class="ident">documentation</span> <span class="op">=</span> <span class="prelude-val">Some</span>(<span class="ident">EMPTY_TYPE_DETECTED</span>.<span class="ident">to_owned</span>());
+                }
+                <span class="kw">_</span> =&gt; (),
+            }
+        }
+    }
+
+    <span class="comment">// 3. change all fields in types that point to a non-existing type to Json.</span>
+    <span class="kw">for</span> (<span class="ident">type_name</span>, <span class="ident">r#type</span>) <span class="kw">in</span> <span class="ident">types</span>.<span class="ident">iter_mut</span>() {
+        <span class="kw">for</span> <span class="ident">field</span> <span class="kw">in</span> <span class="ident">r#type</span>.<span class="ident">fields</span>.<span class="ident">iter_mut</span>() {
+            <span class="kw">match</span> <span class="kw-2">&amp;</span><span class="ident">field</span>.<span class="ident">r#type</span> {
+                <span class="ident">CompositeTypeFieldType::CompositeType</span>(<span class="ident">name</span>) <span class="kw">if</span> <span class="ident">empty_types</span>.<span class="ident">contains</span>(<span class="ident">name</span>) =&gt; {
+                    <span class="ident">fields_with_an_empty_type</span>.<span class="ident">push</span>((<span class="ident">Name::CompositeType</span>(<span class="ident">type_name</span>.<span class="ident">clone</span>()), <span class="ident">field</span>.<span class="ident">name</span>.<span class="ident">clone</span>()));
+                    <span class="ident">field</span>.<span class="ident">r#type</span> <span class="op">=</span> <span class="ident">CompositeTypeFieldType::Scalar</span>(<span class="ident">ScalarType::Json</span>, <span class="prelude-val">None</span>, <span class="prelude-val">None</span>);
+                    <span class="ident">field</span>.<span class="ident">documentation</span> <span class="op">=</span> <span class="prelude-val">Some</span>(<span class="ident">EMPTY_TYPE_DETECTED</span>.<span class="ident">to_owned</span>());
+                }
+                <span class="kw">_</span> =&gt; (),
+            }
+        }
+    }
+
+    <span class="comment">// 4. add warnings in the end to reduce spam</span>
+    <span class="kw">if</span> <span class="op">!</span><span class="ident">fields_with_an_empty_type</span>.<span class="ident">is_empty</span>() {
+        <span class="ident">warnings</span>.<span class="ident">push</span>(<span class="ident"><span class="kw">crate</span>::warnings::fields_pointing_to_an_empty_type</span>(
+            <span class="kw-2">&amp;</span><span class="ident">fields_with_an_empty_type</span>,
+        ));
     }
 }
 
@@ -929,6 +1200,5 @@
     }
 }
 </code></pre></div>
-</section><section id="search" class="content hidden"></section><div id="rustdoc-vars" data-root-path="../../../" data-current-crate="mongodb_introspection_connector" data-search-index-js="../../../search-index.js" data-search-js="../../../search.js"></div>
-    <script src="../../../main.js"></script><script src="../../../source-script.js"></script><script src="../../../source-files.js"></script>
+</section><section id="search" class="content hidden"></section></div></main><div id="rustdoc-vars" data-root-path="../../../" data-current-crate="mongodb_introspection_connector" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.61.0 (fe5b13d68 2022-05-18)" ></div>
 </body></html>

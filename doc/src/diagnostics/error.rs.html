@@ -1,102 +1,107 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `libs&#x2F;datamodel&#x2F;diagnostics&#x2F;src&#x2F;error.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>error.rs - source</title><link rel="stylesheet" type="text/css" href="../../normalize.css"><link rel="stylesheet" type="text/css" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../light.css"  id="themeStyle"><link rel="stylesheet" type="text/css" href="../../dark.css" disabled ><link rel="stylesheet" type="text/css" href="../../ayu.css" disabled ><script id="default-settings" ></script><script src="../../storage.js"></script><script src="../../crates.js"></script><noscript><link rel="stylesheet" href="../../noscript.css"></noscript><link rel="alternate icon" type="image/png" href="../../favicon-16x16.png"><link rel="alternate icon" type="image/png" href="../../favicon-32x32.png"><link rel="icon" type="image/svg+xml" href="../../favicon.svg"><style type="text/css">#crate-search{background-image:url("../../down-arrow.svg");}</style></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu" role="button">&#9776;</div><a href='../../diagnostics/index.html'><div class='logo-container rust-logo'><img src='../../rust-logo.png' alt='logo'></div></a></nav><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!" aria-haspopup="menu" title="themes"><img width="18" height="18" alt="Pick another theme!" src="../../brush.svg"></button><div id="theme-choices" role="menu"></div></div><nav class="sub"><form class="search-form"><div class="search-container"><div><select id="crate-search"><option value="All crates">All crates</option></select><input class="search-input" name="search" disabled autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"></div><button type="button" id="help-button" title="help">?</button><a id="settings-menu" href="../../settings.html" title="settings"><img width="18" height="18" alt="Change settings" src="../../wheel.svg"></a></div></form></nav><section id="main" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">  1</span>
-<span id="2">  2</span>
-<span id="3">  3</span>
-<span id="4">  4</span>
-<span id="5">  5</span>
-<span id="6">  6</span>
-<span id="7">  7</span>
-<span id="8">  8</span>
-<span id="9">  9</span>
-<span id="10"> 10</span>
-<span id="11"> 11</span>
-<span id="12"> 12</span>
-<span id="13"> 13</span>
-<span id="14"> 14</span>
-<span id="15"> 15</span>
-<span id="16"> 16</span>
-<span id="17"> 17</span>
-<span id="18"> 18</span>
-<span id="19"> 19</span>
-<span id="20"> 20</span>
-<span id="21"> 21</span>
-<span id="22"> 22</span>
-<span id="23"> 23</span>
-<span id="24"> 24</span>
-<span id="25"> 25</span>
-<span id="26"> 26</span>
-<span id="27"> 27</span>
-<span id="28"> 28</span>
-<span id="29"> 29</span>
-<span id="30"> 30</span>
-<span id="31"> 31</span>
-<span id="32"> 32</span>
-<span id="33"> 33</span>
-<span id="34"> 34</span>
-<span id="35"> 35</span>
-<span id="36"> 36</span>
-<span id="37"> 37</span>
-<span id="38"> 38</span>
-<span id="39"> 39</span>
-<span id="40"> 40</span>
-<span id="41"> 41</span>
-<span id="42"> 42</span>
-<span id="43"> 43</span>
-<span id="44"> 44</span>
-<span id="45"> 45</span>
-<span id="46"> 46</span>
-<span id="47"> 47</span>
-<span id="48"> 48</span>
-<span id="49"> 49</span>
-<span id="50"> 50</span>
-<span id="51"> 51</span>
-<span id="52"> 52</span>
-<span id="53"> 53</span>
-<span id="54"> 54</span>
-<span id="55"> 55</span>
-<span id="56"> 56</span>
-<span id="57"> 57</span>
-<span id="58"> 58</span>
-<span id="59"> 59</span>
-<span id="60"> 60</span>
-<span id="61"> 61</span>
-<span id="62"> 62</span>
-<span id="63"> 63</span>
-<span id="64"> 64</span>
-<span id="65"> 65</span>
-<span id="66"> 66</span>
-<span id="67"> 67</span>
-<span id="68"> 68</span>
-<span id="69"> 69</span>
-<span id="70"> 70</span>
-<span id="71"> 71</span>
-<span id="72"> 72</span>
-<span id="73"> 73</span>
-<span id="74"> 74</span>
-<span id="75"> 75</span>
-<span id="76"> 76</span>
-<span id="77"> 77</span>
-<span id="78"> 78</span>
-<span id="79"> 79</span>
-<span id="80"> 80</span>
-<span id="81"> 81</span>
-<span id="82"> 82</span>
-<span id="83"> 83</span>
-<span id="84"> 84</span>
-<span id="85"> 85</span>
-<span id="86"> 86</span>
-<span id="87"> 87</span>
-<span id="88"> 88</span>
-<span id="89"> 89</span>
-<span id="90"> 90</span>
-<span id="91"> 91</span>
-<span id="92"> 92</span>
-<span id="93"> 93</span>
-<span id="94"> 94</span>
-<span id="95"> 95</span>
-<span id="96"> 96</span>
-<span id="97"> 97</span>
-<span id="98"> 98</span>
-<span id="99"> 99</span>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `libs/datamodel/diagnostics/src/error.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>error.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" type="text/css" href="../../normalize.css"><link rel="stylesheet" type="text/css" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../ayu.css" disabled><link rel="stylesheet" type="text/css" href="../../dark.css" disabled><link rel="stylesheet" type="text/css" href="../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../storage.js"></script><script src="../../crates.js"></script><script defer src="../../main.js"></script><script defer src="../../source-script.js"></script><script defer src="../../source-files.js"></script>
+    <noscript><link rel="stylesheet" href="../../noscript.css"></noscript><link rel="alternate icon" type="image/png" href="../../favicon-16x16.png"><link rel="alternate icon" type="image/png" href="../../favicon-32x32.png"><link rel="icon" type="image/svg+xml" href="../../favicon.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../diagnostics/index.html"><div class="logo-container"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></div>
+        </a><h2 class="location"></h2>
+    </nav>
+    <nav class="sidebar"><a class="sidebar-logo" href="../../diagnostics/index.html"><div class="logo-container"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></div>
+        </a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../diagnostics/index.html"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></a><nav class="sub"><div class="theme-picker hidden"><button id="theme-picker" aria-label="Pick another theme!" aria-haspopup="menu" title="themes"><img width="22" height="22" alt="Pick another theme!" src="../../brush.svg"></button><div id="theme-choices" role="menu"></div></div><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><button type="button" id="help-button" title="help">?</button><a id="settings-menu" href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../wheel.svg"></a></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
+<span id="2">2</span>
+<span id="3">3</span>
+<span id="4">4</span>
+<span id="5">5</span>
+<span id="6">6</span>
+<span id="7">7</span>
+<span id="8">8</span>
+<span id="9">9</span>
+<span id="10">10</span>
+<span id="11">11</span>
+<span id="12">12</span>
+<span id="13">13</span>
+<span id="14">14</span>
+<span id="15">15</span>
+<span id="16">16</span>
+<span id="17">17</span>
+<span id="18">18</span>
+<span id="19">19</span>
+<span id="20">20</span>
+<span id="21">21</span>
+<span id="22">22</span>
+<span id="23">23</span>
+<span id="24">24</span>
+<span id="25">25</span>
+<span id="26">26</span>
+<span id="27">27</span>
+<span id="28">28</span>
+<span id="29">29</span>
+<span id="30">30</span>
+<span id="31">31</span>
+<span id="32">32</span>
+<span id="33">33</span>
+<span id="34">34</span>
+<span id="35">35</span>
+<span id="36">36</span>
+<span id="37">37</span>
+<span id="38">38</span>
+<span id="39">39</span>
+<span id="40">40</span>
+<span id="41">41</span>
+<span id="42">42</span>
+<span id="43">43</span>
+<span id="44">44</span>
+<span id="45">45</span>
+<span id="46">46</span>
+<span id="47">47</span>
+<span id="48">48</span>
+<span id="49">49</span>
+<span id="50">50</span>
+<span id="51">51</span>
+<span id="52">52</span>
+<span id="53">53</span>
+<span id="54">54</span>
+<span id="55">55</span>
+<span id="56">56</span>
+<span id="57">57</span>
+<span id="58">58</span>
+<span id="59">59</span>
+<span id="60">60</span>
+<span id="61">61</span>
+<span id="62">62</span>
+<span id="63">63</span>
+<span id="64">64</span>
+<span id="65">65</span>
+<span id="66">66</span>
+<span id="67">67</span>
+<span id="68">68</span>
+<span id="69">69</span>
+<span id="70">70</span>
+<span id="71">71</span>
+<span id="72">72</span>
+<span id="73">73</span>
+<span id="74">74</span>
+<span id="75">75</span>
+<span id="76">76</span>
+<span id="77">77</span>
+<span id="78">78</span>
+<span id="79">79</span>
+<span id="80">80</span>
+<span id="81">81</span>
+<span id="82">82</span>
+<span id="83">83</span>
+<span id="84">84</span>
+<span id="85">85</span>
+<span id="86">86</span>
+<span id="87">87</span>
+<span id="88">88</span>
+<span id="89">89</span>
+<span id="90">90</span>
+<span id="91">91</span>
+<span id="92">92</span>
+<span id="93">93</span>
+<span id="94">94</span>
+<span id="95">95</span>
+<span id="96">96</span>
+<span id="97">97</span>
+<span id="98">98</span>
+<span id="99">99</span>
 <span id="100">100</span>
 <span id="101">101</span>
 <span id="102">102</span>
@@ -508,9 +513,166 @@
 <span id="508">508</span>
 <span id="509">509</span>
 <span id="510">510</span>
-</pre><pre class="rust"><code><span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::helper::pretty_print</span>;
-<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::Span</span>;
+<span id="511">511</span>
+<span id="512">512</span>
+<span id="513">513</span>
+<span id="514">514</span>
+<span id="515">515</span>
+<span id="516">516</span>
+<span id="517">517</span>
+<span id="518">518</span>
+<span id="519">519</span>
+<span id="520">520</span>
+<span id="521">521</span>
+<span id="522">522</span>
+<span id="523">523</span>
+<span id="524">524</span>
+<span id="525">525</span>
+<span id="526">526</span>
+<span id="527">527</span>
+<span id="528">528</span>
+<span id="529">529</span>
+<span id="530">530</span>
+<span id="531">531</span>
+<span id="532">532</span>
+<span id="533">533</span>
+<span id="534">534</span>
+<span id="535">535</span>
+<span id="536">536</span>
+<span id="537">537</span>
+<span id="538">538</span>
+<span id="539">539</span>
+<span id="540">540</span>
+<span id="541">541</span>
+<span id="542">542</span>
+<span id="543">543</span>
+<span id="544">544</span>
+<span id="545">545</span>
+<span id="546">546</span>
+<span id="547">547</span>
+<span id="548">548</span>
+<span id="549">549</span>
+<span id="550">550</span>
+<span id="551">551</span>
+<span id="552">552</span>
+<span id="553">553</span>
+<span id="554">554</span>
+<span id="555">555</span>
+<span id="556">556</span>
+<span id="557">557</span>
+<span id="558">558</span>
+<span id="559">559</span>
+<span id="560">560</span>
+<span id="561">561</span>
+<span id="562">562</span>
+<span id="563">563</span>
+<span id="564">564</span>
+<span id="565">565</span>
+<span id="566">566</span>
+<span id="567">567</span>
+<span id="568">568</span>
+<span id="569">569</span>
+<span id="570">570</span>
+<span id="571">571</span>
+<span id="572">572</span>
+<span id="573">573</span>
+<span id="574">574</span>
+<span id="575">575</span>
+<span id="576">576</span>
+<span id="577">577</span>
+<span id="578">578</span>
+<span id="579">579</span>
+<span id="580">580</span>
+<span id="581">581</span>
+<span id="582">582</span>
+<span id="583">583</span>
+<span id="584">584</span>
+<span id="585">585</span>
+<span id="586">586</span>
+<span id="587">587</span>
+<span id="588">588</span>
+<span id="589">589</span>
+<span id="590">590</span>
+<span id="591">591</span>
+<span id="592">592</span>
+<span id="593">593</span>
+<span id="594">594</span>
+<span id="595">595</span>
+<span id="596">596</span>
+<span id="597">597</span>
+<span id="598">598</span>
+<span id="599">599</span>
+<span id="600">600</span>
+<span id="601">601</span>
+<span id="602">602</span>
+<span id="603">603</span>
+<span id="604">604</span>
+<span id="605">605</span>
+<span id="606">606</span>
+<span id="607">607</span>
+<span id="608">608</span>
+<span id="609">609</span>
+<span id="610">610</span>
+<span id="611">611</span>
+<span id="612">612</span>
+<span id="613">613</span>
+<span id="614">614</span>
+<span id="615">615</span>
+<span id="616">616</span>
+<span id="617">617</span>
+<span id="618">618</span>
+<span id="619">619</span>
+<span id="620">620</span>
+<span id="621">621</span>
+<span id="622">622</span>
+<span id="623">623</span>
+<span id="624">624</span>
+<span id="625">625</span>
+<span id="626">626</span>
+<span id="627">627</span>
+<span id="628">628</span>
+<span id="629">629</span>
+<span id="630">630</span>
+<span id="631">631</span>
+<span id="632">632</span>
+<span id="633">633</span>
+<span id="634">634</span>
+<span id="635">635</span>
+<span id="636">636</span>
+<span id="637">637</span>
+<span id="638">638</span>
+<span id="639">639</span>
+<span id="640">640</span>
+<span id="641">641</span>
+<span id="642">642</span>
+<span id="643">643</span>
+<span id="644">644</span>
+<span id="645">645</span>
+<span id="646">646</span>
+<span id="647">647</span>
+<span id="648">648</span>
+<span id="649">649</span>
+<span id="650">650</span>
+<span id="651">651</span>
+<span id="652">652</span>
+</pre><pre class="rust"><code><span class="kw">use</span> <span class="kw">crate</span>::{<span class="ident">pretty_print::pretty_print</span>, <span class="ident">Span</span>};
+<span class="kw">use</span> <span class="ident">std</span>::{<span class="ident">borrow::Cow</span>, <span class="ident">fmt</span>};
 <span class="kw">use</span> <span class="ident">thiserror::Error</span>;
+
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Clone</span>, <span class="ident">PartialEq</span>)]</span>
+<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">DatamodelError</span>(<span class="ident">DatamodelErrorKind</span>);
+
+<span class="kw">impl</span> <span class="ident">fmt::Display</span> <span class="kw">for</span> <span class="ident">DatamodelError</span> {
+    <span class="kw">fn</span> <span class="ident">fmt</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">f</span>: <span class="kw-2">&amp;mut</span> <span class="ident">fmt::Formatter</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>) -&gt; <span class="ident">fmt::Result</span> {
+        <span class="ident">fmt::Display::fmt</span>(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="number">0</span>, <span class="ident">f</span>)
+    }
+}
+
+<span class="kw">impl</span> <span class="ident">From</span><span class="op">&lt;</span><span class="ident">DatamodelErrorKind</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">DatamodelError</span> {
+    <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">kind</span>: <span class="ident">DatamodelErrorKind</span>) -&gt; <span class="self">Self</span> {
+        <span class="ident">DatamodelError</span>(<span class="ident">kind</span>)
+    }
+}
 
 <span class="doccomment">/// Enum for different errors which can happen during parsing or validation.</span>
 <span class="doccomment">///</span>
@@ -519,15 +681,18 @@
 <span class="comment">// Line breaks make the declarations very hard to read.</span>
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Error</span>, <span class="ident">Clone</span>, <span class="ident">PartialEq</span>)]</span>
 <span class="attribute">#[<span class="ident">rustfmt::skip</span>]</span>
-<span class="kw">pub</span> <span class="kw">enum</span> <span class="ident">DatamodelError</span> {
+<span class="kw">enum</span> <span class="ident">DatamodelErrorKind</span> {
   <span class="attribute">#[<span class="ident">error</span>(<span class="string">&quot;Argument \&quot;{}\&quot; is missing.&quot;</span>, <span class="ident">argument_name</span>)]</span>
   <span class="ident">ArgumentNotFound</span> { <span class="ident">argument_name</span>: <span class="ident">String</span>, <span class="ident">span</span>: <span class="ident">Span</span> },
 
   <span class="attribute">#[<span class="ident">error</span>(<span class="string">&quot;Function \&quot;{}\&quot; takes {} arguments, but received {}.&quot;</span>, <span class="ident">function_name</span>, <span class="ident">required_count</span>, <span class="ident">given_count</span>)]</span>
-  <span class="ident">ArgumentCountMissmatch</span> { <span class="ident">function_name</span>: <span class="ident">String</span>, <span class="ident">required_count</span>: <span class="ident">usize</span>, <span class="ident">given_count</span>: <span class="ident">usize</span>, <span class="ident">span</span>: <span class="ident">Span</span> },
+  <span class="ident">ArgumentCountMismatch</span> { <span class="ident">function_name</span>: <span class="ident">String</span>, <span class="ident">required_count</span>: <span class="ident">usize</span>, <span class="ident">given_count</span>: <span class="ident">usize</span>, <span class="ident">span</span>: <span class="ident">Span</span> },
 
   <span class="attribute">#[<span class="ident">error</span>(<span class="string">&quot;Argument \&quot;{}\&quot; is missing in attribute \&quot;@{}\&quot;.&quot;</span>, <span class="ident">argument_name</span>, <span class="ident">attribute_name</span>)]</span>
   <span class="ident">AttributeArgumentNotFound</span> { <span class="ident">argument_name</span>: <span class="ident">String</span>, <span class="ident">attribute_name</span>: <span class="ident">String</span>, <span class="ident">span</span>: <span class="ident">Span</span> },
+
+  <span class="attribute">#[<span class="ident">error</span>(<span class="string">&quot;Native types are not supported with {} connector&quot;</span>, <span class="ident">connector_name</span>)]</span>
+  <span class="ident">NativeTypesNotSupported</span> { <span class="ident">connector_name</span>: <span class="ident">String</span>, <span class="ident">span</span>: <span class="ident">Span</span> },
 
   <span class="attribute">#[<span class="ident">error</span>(<span class="string">&quot;Argument \&quot;{}\&quot; is missing in data source block \&quot;{}\&quot;.&quot;</span>, <span class="ident">argument_name</span>, <span class="ident">source_name</span>)]</span>
   <span class="ident">SourceArgumentNotFound</span> { <span class="ident">argument_name</span>: <span class="ident">String</span>, <span class="ident">source_name</span>: <span class="ident">String</span>, <span class="ident">span</span>: <span class="ident">Span</span> },
@@ -535,14 +700,27 @@
   <span class="attribute">#[<span class="ident">error</span>(<span class="string">&quot;Argument \&quot;{}\&quot; is missing in generator block \&quot;{}\&quot;.&quot;</span>, <span class="ident">argument_name</span>, <span class="ident">generator_name</span>)]</span>
   <span class="ident">GeneratorArgumentNotFound</span> { <span class="ident">argument_name</span>: <span class="ident">String</span>, <span class="ident">generator_name</span>: <span class="ident">String</span>, <span class="ident">span</span>: <span class="ident">Span</span> },
 
-  <span class="attribute">#[<span class="ident">error</span>(<span class="string">&quot;Error parsing attribute \&quot;@{}\&quot;: {}&quot;</span>, <span class="ident">attribute_name</span>, <span class="ident">message</span>)]</span>
-  <span class="ident">AttributeValidationError</span> { <span class="ident">message</span>: <span class="ident">String</span>, <span class="ident">attribute_name</span>: <span class="ident">String</span>, <span class="ident">span</span>: <span class="ident">Span</span> },
-
   <span class="attribute">#[<span class="ident">error</span>(<span class="string">&quot;Attribute \&quot;@{}\&quot; is defined twice.&quot;</span>, <span class="ident">attribute_name</span>)]</span>
   <span class="ident">DuplicateAttributeError</span> { <span class="ident">attribute_name</span>: <span class="ident">String</span>, <span class="ident">span</span>: <span class="ident">Span</span> },
 
   <span class="attribute">#[<span class="ident">error</span>(<span class="string">&quot;The model with database name \&quot;{}\&quot; could not be defined because another model with this name exists: \&quot;{}\&quot;&quot;</span>, <span class="ident">model_database_name</span>, <span class="ident">existing_model_name</span>)]</span>
   <span class="ident">DuplicateModelDatabaseNameError</span> { <span class="ident">model_database_name</span>: <span class="ident">String</span>, <span class="ident">existing_model_name</span>: <span class="ident">String</span>, <span class="ident">span</span>: <span class="ident">Span</span> },
+
+  <span class="attribute">#[<span class="ident">error</span>(<span class="string">&quot;Invalid Native type {}.&quot;</span>, <span class="ident">native_type</span>)]</span>
+  <span class="ident">InvalidNativeType</span> { <span class="ident">native_type</span>: <span class="ident">String</span>, <span class="ident">span</span>: <span class="ident">Span</span> },
+
+  <span class="attribute">#[<span class="ident">error</span>(
+      <span class="string">&quot;Native type {} takes {} arguments, but received {}.&quot;</span>,
+      <span class="ident">native_type</span>,
+      <span class="ident">required_count</span>,
+      <span class="ident">given_count</span>
+  )]</span>
+  <span class="ident">NativeTypeArgumentCountMismatchError</span> {
+      <span class="ident">native_type</span>: <span class="ident">String</span>,
+      <span class="ident">required_count</span>: <span class="ident">usize</span>,
+      <span class="ident">given_count</span>: <span class="ident">usize</span>,
+      <span class="ident">span</span>: <span class="ident">Span</span>,
+  },
 
   <span class="attribute">#[<span class="ident">error</span>(<span class="string">&quot;\&quot;{}\&quot; is a reserved scalar type name and cannot be used.&quot;</span>, <span class="ident">type_name</span>)]</span>
   <span class="ident">ReservedScalarTypeError</span> { <span class="ident">type_name</span>: <span class="ident">String</span>, <span class="ident">span</span>: <span class="ident">Span</span> },
@@ -575,8 +753,8 @@
   <span class="attribute">#[<span class="ident">error</span>(<span class="string">&quot;Attribute not known: \&quot;@{}\&quot;.&quot;</span>, <span class="ident">attribute_name</span>)]</span>
   <span class="ident">AttributeNotKnownError</span> { <span class="ident">attribute_name</span>: <span class="ident">String</span>, <span class="ident">span</span>: <span class="ident">Span</span> },
 
-  <span class="attribute">#[<span class="ident">error</span>(<span class="string">&quot;Function not known: \&quot;{}\&quot;.&quot;</span>, <span class="ident">function_name</span>)]</span>
-  <span class="ident">FunctionNotKnownError</span> { <span class="ident">function_name</span>: <span class="ident">String</span>, <span class="ident">span</span>: <span class="ident">Span</span> },
+  <span class="attribute">#[<span class="ident">error</span>(<span class="string">&quot;Property not known: \&quot;{}\&quot;.&quot;</span>, <span class="ident">property_name</span>)]</span>
+  <span class="ident">PropertyNotKnownError</span> { <span class="ident">property_name</span>: <span class="ident">String</span>, <span class="ident">span</span>: <span class="ident">Span</span> },
 
   <span class="attribute">#[<span class="ident">error</span>(<span class="string">&quot;Datasource provider not known: \&quot;{}\&quot;.&quot;</span>, <span class="ident">provider</span>)]</span>
   <span class="ident">DatasourceProviderNotKnownError</span> { <span class="ident">provider</span>: <span class="ident">String</span>, <span class="ident">span</span>: <span class="ident">Span</span> },
@@ -598,15 +776,6 @@
 
   <span class="attribute">#[<span class="ident">error</span>(<span class="string">&quot;Unexpected token. Expected one of: {}&quot;</span>, <span class="ident">expected_str</span>)]</span>
   <span class="ident">ParserError</span> { <span class="ident">expected_str</span>: <span class="ident">String</span>, <span class="ident">span</span>: <span class="ident">Span</span> },
-
-  <span class="attribute">#[<span class="ident">error</span>(<span class="string">&quot;{}&quot;</span>, <span class="ident">message</span>)]</span>
-  <span class="ident">LegacyParserError</span> { <span class="ident">message</span>: <span class="ident">String</span>, <span class="ident">span</span>: <span class="ident">Span</span> },
-
-  <span class="attribute">#[<span class="ident">error</span>(<span class="string">&quot;{}&quot;</span>, <span class="ident">message</span>)]</span>
-  <span class="ident">ConnectorError</span> { <span class="ident">message</span>: <span class="ident">String</span>, <span class="ident">span</span>: <span class="ident">Span</span> },
-
-  <span class="attribute">#[<span class="ident">error</span>(<span class="string">&quot;{}&quot;</span>, <span class="ident">message</span>)]</span>
-  <span class="ident">FunctionalEvaluationError</span> { <span class="ident">message</span>: <span class="ident">String</span>, <span class="ident">span</span>: <span class="ident">Span</span> },
 
   <span class="attribute">#[<span class="ident">error</span>(<span class="string">&quot;Environment variable not found: {}.&quot;</span>, <span class="ident">var_name</span>)]</span>
   <span class="ident">EnvironmentFunctionalEvaluationError</span> { <span class="ident">var_name</span>: <span class="ident">String</span>, <span class="ident">span</span>: <span class="ident">Span</span> },
@@ -634,36 +803,47 @@
 
   <span class="attribute">#[<span class="ident">error</span>(<span class="string">&quot;Error validating: {}&quot;</span>, <span class="ident">message</span>)]</span>
   <span class="ident">ValidationError</span> { <span class="ident">message</span>: <span class="ident">String</span>, <span class="ident">span</span>: <span class="ident">Span</span> },
+
+  <span class="attribute">#[<span class="ident">error</span>(<span class="string">&quot;{}&quot;</span>, <span class="ident">message</span>)]</span>
+  <span class="ident">Raw</span> { <span class="ident">message</span>: <span class="ident">Cow</span><span class="op">&lt;</span><span class="lifetime">&#39;static</span>, <span class="ident">str</span><span class="op">&gt;</span>, <span class="ident">span</span>: <span class="ident">Span</span> },
+
 }
 
 <span class="kw">impl</span> <span class="ident">DatamodelError</span> {
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new</span>(<span class="ident">message</span>: <span class="ident">Cow</span><span class="op">&lt;</span><span class="lifetime">&#39;static</span>, <span class="ident">str</span><span class="op">&gt;</span>, <span class="ident">span</span>: <span class="ident">Span</span>) -&gt; <span class="self">Self</span> {
+        <span class="ident">DatamodelError</span>(<span class="ident">DatamodelErrorKind::Raw</span> { <span class="ident">message</span>, <span class="ident">span</span> })
+    }
+
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new_literal_parser_error</span>(<span class="ident">literal_type</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>, <span class="ident">raw_value</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>, <span class="ident">span</span>: <span class="ident">Span</span>) -&gt; <span class="ident">DatamodelError</span> {
-        <span class="ident">DatamodelError::LiteralParseError</span> {
+        <span class="ident">DatamodelErrorKind::LiteralParseError</span> {
             <span class="ident">literal_type</span>: <span class="ident">String::from</span>(<span class="ident">literal_type</span>),
             <span class="ident">raw_value</span>: <span class="ident">String::from</span>(<span class="ident">raw_value</span>),
             <span class="ident">span</span>,
         }
+        .<span class="ident">into</span>()
     }
 
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new_argument_not_found_error</span>(<span class="ident">argument_name</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>, <span class="ident">span</span>: <span class="ident">Span</span>) -&gt; <span class="ident">DatamodelError</span> {
-        <span class="ident">DatamodelError::ArgumentNotFound</span> {
+        <span class="ident">DatamodelErrorKind::ArgumentNotFound</span> {
             <span class="ident">argument_name</span>: <span class="ident">String::from</span>(<span class="ident">argument_name</span>),
             <span class="ident">span</span>,
         }
+        .<span class="ident">into</span>()
     }
 
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new_argument_count_missmatch_error</span>(
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new_argument_count_mismatch_error</span>(
         <span class="ident">function_name</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>,
         <span class="ident">required_count</span>: <span class="ident">usize</span>,
         <span class="ident">given_count</span>: <span class="ident">usize</span>,
         <span class="ident">span</span>: <span class="ident">Span</span>,
     ) -&gt; <span class="ident">DatamodelError</span> {
-        <span class="ident">DatamodelError::ArgumentCountMissmatch</span> {
+        <span class="ident">DatamodelErrorKind::ArgumentCountMismatch</span> {
             <span class="ident">function_name</span>: <span class="ident">String::from</span>(<span class="ident">function_name</span>),
             <span class="ident">required_count</span>,
             <span class="ident">given_count</span>,
             <span class="ident">span</span>,
         }
+        .<span class="ident">into</span>()
     }
 
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new_attribute_argument_not_found_error</span>(
@@ -671,19 +851,21 @@
         <span class="ident">attribute_name</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>,
         <span class="ident">span</span>: <span class="ident">Span</span>,
     ) -&gt; <span class="ident">DatamodelError</span> {
-        <span class="ident">DatamodelError::AttributeArgumentNotFound</span> {
+        <span class="ident">DatamodelErrorKind::AttributeArgumentNotFound</span> {
             <span class="ident">argument_name</span>: <span class="ident">String::from</span>(<span class="ident">argument_name</span>),
             <span class="ident">attribute_name</span>: <span class="ident">String::from</span>(<span class="ident">attribute_name</span>),
             <span class="ident">span</span>,
         }
+        .<span class="ident">into</span>()
     }
 
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new_source_argument_not_found_error</span>(<span class="ident">argument_name</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>, <span class="ident">source_name</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>, <span class="ident">span</span>: <span class="ident">Span</span>) -&gt; <span class="ident">DatamodelError</span> {
-        <span class="ident">DatamodelError::SourceArgumentNotFound</span> {
+        <span class="ident">DatamodelErrorKind::SourceArgumentNotFound</span> {
             <span class="ident">argument_name</span>: <span class="ident">String::from</span>(<span class="ident">argument_name</span>),
             <span class="ident">source_name</span>: <span class="ident">String::from</span>(<span class="ident">source_name</span>),
             <span class="ident">span</span>,
         }
+        .<span class="ident">into</span>()
     }
 
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new_generator_argument_not_found_error</span>(
@@ -691,33 +873,73 @@
         <span class="ident">generator_name</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>,
         <span class="ident">span</span>: <span class="ident">Span</span>,
     ) -&gt; <span class="ident">DatamodelError</span> {
-        <span class="ident">DatamodelError::GeneratorArgumentNotFound</span> {
+        <span class="ident">DatamodelErrorKind::GeneratorArgumentNotFound</span> {
             <span class="ident">argument_name</span>: <span class="ident">String::from</span>(<span class="ident">argument_name</span>),
             <span class="ident">generator_name</span>: <span class="ident">String::from</span>(<span class="ident">generator_name</span>),
             <span class="ident">span</span>,
         }
+        .<span class="ident">into</span>()
     }
 
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new_attribute_validation_error</span>(<span class="ident">message</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>, <span class="ident">attribute_name</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>, <span class="ident">span</span>: <span class="ident">Span</span>) -&gt; <span class="ident">DatamodelError</span> {
-        <span class="ident">DatamodelError::AttributeValidationError</span> {
-            <span class="ident">message</span>: <span class="ident">String::from</span>(<span class="ident">message</span>),
-            <span class="ident">attribute_name</span>: <span class="ident">String::from</span>(<span class="ident">attribute_name</span>),
-            <span class="ident">span</span>,
-        }
+        <span class="kw">let</span> <span class="ident">msg</span> <span class="op">=</span> <span class="macro">format!</span>(<span class="string">&quot;Error parsing attribute \&quot;{attribute_name}\&quot;: {message}&quot;</span>);
+        <span class="ident"><span class="self">Self</span>::new</span>(<span class="ident">msg</span>.<span class="ident">into</span>(), <span class="ident">span</span>)
     }
 
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new_duplicate_attribute_error</span>(<span class="ident">attribute_name</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>, <span class="ident">span</span>: <span class="ident">Span</span>) -&gt; <span class="ident">DatamodelError</span> {
-        <span class="ident">DatamodelError::DuplicateAttributeError</span> {
+        <span class="ident">DatamodelErrorKind::DuplicateAttributeError</span> {
             <span class="ident">attribute_name</span>: <span class="ident">String::from</span>(<span class="ident">attribute_name</span>),
             <span class="ident">span</span>,
         }
+        .<span class="ident">into</span>()
+    }
+
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new_incompatible_native_type</span>(
+        <span class="ident">native_type</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>,
+        <span class="ident">field_type</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>,
+        <span class="ident">expected_types</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>,
+        <span class="ident">span</span>: <span class="ident">Span</span>,
+    ) -&gt; <span class="ident">DatamodelError</span> {
+        <span class="kw">let</span> <span class="ident">msg</span> <span class="op">=</span> <span class="macro">format!</span>(
+            <span class="string">&quot;Native type {} is not compatible with declared field type {}, expected field type {}.&quot;</span>,
+            <span class="ident">native_type</span>, <span class="ident">field_type</span>, <span class="ident">expected_types</span>
+        );
+        <span class="ident">DatamodelError::new</span>(<span class="ident">msg</span>.<span class="ident">into</span>(), <span class="ident">span</span>)
+    }
+
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new_invalid_native_type_argument</span>(
+        <span class="ident">native_type</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>,
+        <span class="ident">got</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>,
+        <span class="ident">expected</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>,
+        <span class="ident">span</span>: <span class="ident">Span</span>,
+    ) -&gt; <span class="ident">DatamodelError</span> {
+        <span class="kw">let</span> <span class="ident">msg</span> <span class="op">=</span> <span class="macro">format!</span>(
+            <span class="string">&quot;Invalid argument for type {}: {}. Allowed values: {}.&quot;</span>,
+            <span class="ident">native_type</span>, <span class="ident">got</span>, <span class="ident">expected</span>
+        );
+        <span class="ident">DatamodelError::new</span>(<span class="ident">msg</span>.<span class="ident">into</span>(), <span class="ident">span</span>)
+    }
+
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new_invalid_prefix_for_native_types</span>(
+        <span class="ident">given_prefix</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>,
+        <span class="ident">expected_prefix</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>,
+        <span class="ident">suggestion</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>,
+        <span class="ident">span</span>: <span class="ident">Span</span>,
+    ) -&gt; <span class="ident">DatamodelError</span> {
+        <span class="kw">let</span> <span class="ident">msg</span> <span class="op">=</span>  <span class="macro">format!</span>(<span class="string">&quot;The prefix {} is invalid. It must be equal to the name of an existing datasource e.g. {}. Did you mean to use {}?&quot;</span>, <span class="ident">given_prefix</span>, <span class="ident">expected_prefix</span>, <span class="ident">suggestion</span>);
+        <span class="ident">DatamodelError::new</span>(<span class="ident">msg</span>.<span class="ident">into</span>(), <span class="ident">span</span>)
+    }
+
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new_native_types_not_supported</span>(<span class="ident">connector_name</span>: <span class="ident">String</span>, <span class="ident">span</span>: <span class="ident">Span</span>) -&gt; <span class="ident">DatamodelError</span> {
+        <span class="ident">DatamodelErrorKind::NativeTypesNotSupported</span> { <span class="ident">connector_name</span>, <span class="ident">span</span> }.<span class="ident">into</span>()
     }
 
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new_reserved_scalar_type_error</span>(<span class="ident">type_name</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>, <span class="ident">span</span>: <span class="ident">Span</span>) -&gt; <span class="ident">DatamodelError</span> {
-        <span class="ident">DatamodelError::ReservedScalarTypeError</span> {
+        <span class="ident">DatamodelErrorKind::ReservedScalarTypeError</span> {
             <span class="ident">type_name</span>: <span class="ident">String::from</span>(<span class="ident">type_name</span>),
             <span class="ident">span</span>,
         }
+        .<span class="ident">into</span>()
     }
 
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new_duplicate_model_database_name_error</span>(
@@ -725,91 +947,102 @@
         <span class="ident">existing_model_name</span>: <span class="ident">String</span>,
         <span class="ident">span</span>: <span class="ident">Span</span>,
     ) -&gt; <span class="ident">DatamodelError</span> {
-        <span class="ident">DatamodelError::DuplicateModelDatabaseNameError</span> {
+        <span class="ident">DatamodelErrorKind::DuplicateModelDatabaseNameError</span> {
             <span class="ident">model_database_name</span>,
             <span class="ident">existing_model_name</span>,
             <span class="ident">span</span>,
         }
+        .<span class="ident">into</span>()
     }
 
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new_duplicate_top_error</span>(<span class="ident">name</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>, <span class="ident">top_type</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>, <span class="ident">existing_top_type</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>, <span class="ident">span</span>: <span class="ident">Span</span>) -&gt; <span class="ident">DatamodelError</span> {
-        <span class="ident">DatamodelError::DuplicateTopError</span> {
+        <span class="ident">DatamodelErrorKind::DuplicateTopError</span> {
             <span class="ident">name</span>: <span class="ident">String::from</span>(<span class="ident">name</span>),
             <span class="ident">top_type</span>: <span class="ident">String::from</span>(<span class="ident">top_type</span>),
             <span class="ident">existing_top_type</span>: <span class="ident">String::from</span>(<span class="ident">existing_top_type</span>),
             <span class="ident">span</span>,
         }
+        .<span class="ident">into</span>()
     }
 
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new_duplicate_config_key_error</span>(<span class="ident">conf_block_name</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>, <span class="ident">key_name</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>, <span class="ident">span</span>: <span class="ident">Span</span>) -&gt; <span class="ident">DatamodelError</span> {
-        <span class="ident">DatamodelError::DuplicateConfigKeyError</span> {
+        <span class="ident">DatamodelErrorKind::DuplicateConfigKeyError</span> {
             <span class="ident">conf_block_name</span>: <span class="ident">String::from</span>(<span class="ident">conf_block_name</span>),
             <span class="ident">key_name</span>: <span class="ident">String::from</span>(<span class="ident">key_name</span>),
             <span class="ident">span</span>,
         }
+        .<span class="ident">into</span>()
     }
 
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new_duplicate_argument_error</span>(<span class="ident">arg_name</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>, <span class="ident">span</span>: <span class="ident">Span</span>) -&gt; <span class="ident">DatamodelError</span> {
-        <span class="ident">DatamodelError::DuplicateArgumentError</span> {
+        <span class="ident">DatamodelErrorKind::DuplicateArgumentError</span> {
             <span class="ident">arg_name</span>: <span class="ident">String::from</span>(<span class="ident">arg_name</span>),
             <span class="ident">span</span>,
         }
+        .<span class="ident">into</span>()
     }
 
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new_unused_argument_error</span>(<span class="ident">arg_name</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>, <span class="ident">span</span>: <span class="ident">Span</span>) -&gt; <span class="ident">DatamodelError</span> {
-        <span class="ident">DatamodelError::UnusedArgumentError</span> {
+        <span class="ident">DatamodelErrorKind::UnusedArgumentError</span> {
             <span class="ident">arg_name</span>: <span class="ident">String::from</span>(<span class="ident">arg_name</span>),
             <span class="ident">span</span>,
         }
+        .<span class="ident">into</span>()
     }
 
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new_duplicate_default_argument_error</span>(<span class="ident">arg_name</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>, <span class="ident">span</span>: <span class="ident">Span</span>) -&gt; <span class="ident">DatamodelError</span> {
-        <span class="ident">DatamodelError::DuplicateDefaultArgumentError</span> {
+        <span class="ident">DatamodelErrorKind::DuplicateDefaultArgumentError</span> {
             <span class="ident">arg_name</span>: <span class="ident">String::from</span>(<span class="ident">arg_name</span>),
             <span class="ident">span</span>,
         }
+        .<span class="ident">into</span>()
     }
 
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new_duplicate_enum_value_error</span>(<span class="ident">enum_name</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>, <span class="ident">value_name</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>, <span class="ident">span</span>: <span class="ident">Span</span>) -&gt; <span class="ident">DatamodelError</span> {
-        <span class="ident">DatamodelError::DuplicateEnumValueError</span> {
+        <span class="ident">DatamodelErrorKind::DuplicateEnumValueError</span> {
             <span class="ident">enum_name</span>: <span class="ident">String::from</span>(<span class="ident">enum_name</span>),
             <span class="ident">value_name</span>: <span class="ident">String::from</span>(<span class="ident">value_name</span>),
             <span class="ident">span</span>,
         }
+        .<span class="ident">into</span>()
     }
 
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new_composite_type_duplicate_field_error</span>(<span class="ident">type_name</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>, <span class="ident">field_name</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>, <span class="ident">span</span>: <span class="ident">Span</span>) -&gt; <span class="ident">DatamodelError</span> {
-        <span class="ident">DatamodelError::DuplicateFieldError</span> {
+        <span class="ident">DatamodelErrorKind::DuplicateFieldError</span> {
             <span class="ident">container_type</span>: <span class="string">&quot;composite type&quot;</span>,
             <span class="ident">model_name</span>: <span class="ident">String::from</span>(<span class="ident">type_name</span>),
             <span class="ident">field_name</span>: <span class="ident">String::from</span>(<span class="ident">field_name</span>),
             <span class="ident">span</span>,
         }
+        .<span class="ident">into</span>()
     }
 
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new_duplicate_field_error</span>(<span class="ident">model_name</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>, <span class="ident">field_name</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>, <span class="ident">span</span>: <span class="ident">Span</span>) -&gt; <span class="ident">DatamodelError</span> {
-        <span class="ident">DatamodelError::DuplicateFieldError</span> {
+        <span class="ident">DatamodelErrorKind::DuplicateFieldError</span> {
             <span class="ident">container_type</span>: <span class="string">&quot;model&quot;</span>,
             <span class="ident">model_name</span>: <span class="ident">String::from</span>(<span class="ident">model_name</span>),
             <span class="ident">field_name</span>: <span class="ident">String::from</span>(<span class="ident">field_name</span>),
             <span class="ident">span</span>,
         }
+        .<span class="ident">into</span>()
     }
 
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new_scalar_list_fields_are_not_supported</span>(<span class="ident">model_name</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>, <span class="ident">field_name</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>, <span class="ident">span</span>: <span class="ident">Span</span>) -&gt; <span class="ident">DatamodelError</span> {
-        <span class="ident">DatamodelError::ScalarListFieldsAreNotSupported</span> {
+        <span class="ident">DatamodelErrorKind::ScalarListFieldsAreNotSupported</span> {
             <span class="ident">model_name</span>: <span class="ident">String::from</span>(<span class="ident">model_name</span>),
             <span class="ident">field_name</span>: <span class="ident">String::from</span>(<span class="ident">field_name</span>),
             <span class="ident">span</span>,
         }
+        .<span class="ident">into</span>()
     }
 
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new_model_validation_error</span>(<span class="ident">message</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>, <span class="ident">model_name</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>, <span class="ident">span</span>: <span class="ident">Span</span>) -&gt; <span class="ident">DatamodelError</span> {
-        <span class="ident">DatamodelError::ModelValidationError</span> {
+        <span class="ident">DatamodelErrorKind::ModelValidationError</span> {
             <span class="ident">message</span>: <span class="ident">String::from</span>(<span class="ident">message</span>),
             <span class="ident">model_name</span>: <span class="ident">String::from</span>(<span class="ident">model_name</span>),
             <span class="ident">span</span>,
         }
+        .<span class="ident">into</span>()
     }
 
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new_composite_type_validation_error</span>(
@@ -817,19 +1050,21 @@
         <span class="ident">composite_type_name</span>: <span class="ident">String</span>,
         <span class="ident">span</span>: <span class="ident">Span</span>,
     ) -&gt; <span class="ident">DatamodelError</span> {
-        <span class="ident">DatamodelError::CompositeTypeValidationError</span> {
+        <span class="ident">DatamodelErrorKind::CompositeTypeValidationError</span> {
             <span class="ident">message</span>,
             <span class="ident">composite_type_name</span>,
             <span class="ident">span</span>,
         }
+        .<span class="ident">into</span>()
     }
 
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new_enum_validation_error</span>(<span class="ident">message</span>: <span class="ident">String</span>, <span class="ident">enum_name</span>: <span class="ident">String</span>, <span class="ident">span</span>: <span class="ident">Span</span>) -&gt; <span class="ident">DatamodelError</span> {
-        <span class="ident">DatamodelError::EnumValidationError</span> {
+        <span class="ident">DatamodelErrorKind::EnumValidationError</span> {
             <span class="ident">message</span>,
             <span class="ident">enum_name</span>,
             <span class="ident">span</span>,
         }
+        .<span class="ident">into</span>()
     }
 
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new_composite_type_field_validation_error</span>(
@@ -838,103 +1073,123 @@
         <span class="ident">field</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>,
         <span class="ident">span</span>: <span class="ident">Span</span>,
     ) -&gt; <span class="ident">DatamodelError</span> {
-        <span class="ident">DatamodelError::FieldValidationError</span> {
+        <span class="ident">DatamodelErrorKind::FieldValidationError</span> {
             <span class="ident">message</span>: <span class="ident">message</span>.<span class="ident">to_owned</span>(),
             <span class="ident">container_name</span>: <span class="ident">composite_type_name</span>.<span class="ident">to_owned</span>(),
             <span class="ident">container_type</span>: <span class="string">&quot;composite type&quot;</span>,
             <span class="ident">field</span>: <span class="ident">field</span>.<span class="ident">to_owned</span>(),
             <span class="ident">span</span>,
         }
+        .<span class="ident">into</span>()
     }
 
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new_field_validation_error</span>(<span class="ident">message</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>, <span class="ident">model</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>, <span class="ident">field</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>, <span class="ident">span</span>: <span class="ident">Span</span>) -&gt; <span class="ident">DatamodelError</span> {
-        <span class="ident">DatamodelError::FieldValidationError</span> {
+        <span class="ident">DatamodelErrorKind::FieldValidationError</span> {
             <span class="ident">message</span>: <span class="ident">message</span>.<span class="ident">to_owned</span>(),
             <span class="ident">container_name</span>: <span class="ident">model</span>.<span class="ident">to_owned</span>(),
             <span class="ident">container_type</span>: <span class="string">&quot;model&quot;</span>,
             <span class="ident">field</span>: <span class="ident">field</span>.<span class="ident">to_owned</span>(),
             <span class="ident">span</span>,
         }
+        .<span class="ident">into</span>()
     }
 
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new_source_validation_error</span>(<span class="ident">message</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>, <span class="ident">source</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>, <span class="ident">span</span>: <span class="ident">Span</span>) -&gt; <span class="ident">DatamodelError</span> {
-        <span class="ident">DatamodelError::SourceValidationError</span> {
+        <span class="ident">DatamodelErrorKind::SourceValidationError</span> {
             <span class="ident">message</span>: <span class="ident">message</span>.<span class="ident">to_owned</span>(),
             <span class="ident">datasource</span>: <span class="ident">source</span>.<span class="ident">to_owned</span>(),
             <span class="ident">span</span>,
         }
+        .<span class="ident">into</span>()
     }
 
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new_validation_error</span>(<span class="ident">message</span>: <span class="ident">String</span>, <span class="ident">span</span>: <span class="ident">Span</span>) -&gt; <span class="ident">DatamodelError</span> {
-        <span class="ident">DatamodelError::ValidationError</span> { <span class="ident">message</span>, <span class="ident">span</span> }
+        <span class="ident">DatamodelErrorKind::ValidationError</span> { <span class="ident">message</span>, <span class="ident">span</span> }.<span class="ident">into</span>()
     }
 
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new_legacy_parser_error</span>(<span class="ident">message</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>, <span class="ident">span</span>: <span class="ident">Span</span>) -&gt; <span class="ident">DatamodelError</span> {
-        <span class="ident">DatamodelError::LegacyParserError</span> {
-            <span class="ident">message</span>: <span class="ident">String::from</span>(<span class="ident">message</span>),
-            <span class="ident">span</span>,
-        }
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new_legacy_parser_error</span>(<span class="ident">message</span>: <span class="kw">impl</span> <span class="ident">Into</span><span class="op">&lt;</span><span class="ident">Cow</span><span class="op">&lt;</span><span class="lifetime">&#39;static</span>, <span class="ident">str</span><span class="op">&gt;</span><span class="op">&gt;</span>, <span class="ident">span</span>: <span class="ident">Span</span>) -&gt; <span class="ident">DatamodelError</span> {
+        <span class="ident"><span class="self">Self</span>::new</span>(<span class="ident">message</span>.<span class="ident">into</span>(), <span class="ident">span</span>)
     }
 
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new_connector_error</span>(<span class="ident">message</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>, <span class="ident">span</span>: <span class="ident">Span</span>) -&gt; <span class="ident">DatamodelError</span> {
-        <span class="ident">DatamodelError::ConnectorError</span> {
-            <span class="ident">message</span>: <span class="ident">String::from</span>(<span class="ident">message</span>),
-            <span class="ident">span</span>,
-        }
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new_optional_argument_count_mismatch</span>(
+        <span class="ident">native_type</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>,
+        <span class="ident">optional_count</span>: <span class="ident">usize</span>,
+        <span class="ident">given_count</span>: <span class="ident">usize</span>,
+        <span class="ident">span</span>: <span class="ident">Span</span>,
+    ) -&gt; <span class="ident">DatamodelError</span> {
+        <span class="kw">let</span> <span class="ident">msg</span> <span class="op">=</span> <span class="macro">format!</span>(
+            <span class="string">&quot;Native type {} takes {} optional arguments, but received {}.&quot;</span>,
+            <span class="ident">native_type</span>, <span class="ident">optional_count</span>, <span class="ident">given_count</span>
+        );
+        <span class="ident">DatamodelError::new</span>(<span class="ident">msg</span>.<span class="ident">into</span>(), <span class="ident">span</span>)
     }
 
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new_parser_error</span>(<span class="ident">expected_str</span>: <span class="ident">String</span>, <span class="ident">span</span>: <span class="ident">Span</span>) -&gt; <span class="ident">DatamodelError</span> {
-        <span class="ident">DatamodelError::ParserError</span> { <span class="ident">expected_str</span>, <span class="ident">span</span> }
+        <span class="ident">DatamodelErrorKind::ParserError</span> { <span class="ident">expected_str</span>, <span class="ident">span</span> }.<span class="ident">into</span>()
     }
 
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new_functional_evaluation_error</span>(<span class="ident">message</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>, <span class="ident">span</span>: <span class="ident">Span</span>) -&gt; <span class="ident">DatamodelError</span> {
-        <span class="ident">DatamodelError::FunctionalEvaluationError</span> {
-            <span class="ident">message</span>: <span class="ident">String::from</span>(<span class="ident">message</span>),
-            <span class="ident">span</span>,
-        }
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new_functional_evaluation_error</span>(<span class="ident">message</span>: <span class="kw">impl</span> <span class="ident">Into</span><span class="op">&lt;</span><span class="ident">Cow</span><span class="op">&lt;</span><span class="lifetime">&#39;static</span>, <span class="ident">str</span><span class="op">&gt;</span><span class="op">&gt;</span>, <span class="ident">span</span>: <span class="ident">Span</span>) -&gt; <span class="ident">DatamodelError</span> {
+        <span class="ident"><span class="self">Self</span>::new</span>(<span class="ident">message</span>.<span class="ident">into</span>(), <span class="ident">span</span>)
     }
 
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new_environment_functional_evaluation_error</span>(<span class="ident">var_name</span>: <span class="ident">String</span>, <span class="ident">span</span>: <span class="ident">Span</span>) -&gt; <span class="ident">DatamodelError</span> {
-        <span class="ident">DatamodelError::EnvironmentFunctionalEvaluationError</span> { <span class="ident">var_name</span>, <span class="ident">span</span> }
+        <span class="ident">DatamodelErrorKind::EnvironmentFunctionalEvaluationError</span> { <span class="ident">var_name</span>, <span class="ident">span</span> }.<span class="ident">into</span>()
     }
 
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new_type_not_found_error</span>(<span class="ident">type_name</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>, <span class="ident">span</span>: <span class="ident">Span</span>) -&gt; <span class="ident">DatamodelError</span> {
-        <span class="ident">DatamodelError::TypeNotFoundError</span> {
+        <span class="ident">DatamodelErrorKind::TypeNotFoundError</span> {
             <span class="ident">type_name</span>: <span class="ident">String::from</span>(<span class="ident">type_name</span>),
             <span class="ident">span</span>,
         }
+        .<span class="ident">into</span>()
     }
 
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new_scalar_type_not_found_error</span>(<span class="ident">type_name</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>, <span class="ident">span</span>: <span class="ident">Span</span>) -&gt; <span class="ident">DatamodelError</span> {
-        <span class="ident">DatamodelError::ScalarTypeNotFoundError</span> {
+        <span class="ident">DatamodelErrorKind::ScalarTypeNotFoundError</span> {
             <span class="ident">type_name</span>: <span class="ident">String::from</span>(<span class="ident">type_name</span>),
             <span class="ident">span</span>,
         }
+        .<span class="ident">into</span>()
     }
 
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new_attribute_not_known_error</span>(<span class="ident">attribute_name</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>, <span class="ident">span</span>: <span class="ident">Span</span>) -&gt; <span class="ident">DatamodelError</span> {
-        <span class="ident">DatamodelError::AttributeNotKnownError</span> {
+        <span class="ident">DatamodelErrorKind::AttributeNotKnownError</span> {
             <span class="ident">attribute_name</span>: <span class="ident">String::from</span>(<span class="ident">attribute_name</span>),
             <span class="ident">span</span>,
         }
+        .<span class="ident">into</span>()
     }
 
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new_function_not_known_error</span>(<span class="ident">function_name</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>, <span class="ident">span</span>: <span class="ident">Span</span>) -&gt; <span class="ident">DatamodelError</span> {
-        <span class="ident">DatamodelError::FunctionNotKnownError</span> {
-            <span class="ident">function_name</span>: <span class="ident">String::from</span>(<span class="ident">function_name</span>),
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new_property_not_known_error</span>(<span class="ident">property_name</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>, <span class="ident">span</span>: <span class="ident">Span</span>) -&gt; <span class="ident">DatamodelError</span> {
+        <span class="ident">DatamodelErrorKind::PropertyNotKnownError</span> {
+            <span class="ident">property_name</span>: <span class="ident">String::from</span>(<span class="ident">property_name</span>),
             <span class="ident">span</span>,
         }
+        .<span class="ident">into</span>()
+    }
+
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new_default_unknown_function</span>(<span class="ident">function_name</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>, <span class="ident">span</span>: <span class="ident">Span</span>) -&gt; <span class="ident">DatamodelError</span> {
+        <span class="ident">DatamodelError::new</span>(<span class="macro">format!</span>(
+                <span class="string">&quot;Unknown function in @default(): `{function_name}` is not known. You can read about the available functions here: https://pris.ly/d/attribute-functions&quot;</span>
+            ).<span class="ident">into</span>(),
+            <span class="ident">span</span>
+        )
+    }
+
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new_invalid_model_error</span>(<span class="ident">msg</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>, <span class="ident">span</span>: <span class="ident">Span</span>) -&gt; <span class="ident">DatamodelError</span> {
+        <span class="ident">DatamodelError::new</span>(<span class="macro">format!</span>(<span class="string">&quot;Invalid model: {}&quot;</span>, <span class="ident">msg</span>).<span class="ident">into</span>(), <span class="ident">span</span>)
     }
 
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new_datasource_provider_not_known_error</span>(<span class="ident">provider</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>, <span class="ident">span</span>: <span class="ident">Span</span>) -&gt; <span class="ident">DatamodelError</span> {
-        <span class="ident">DatamodelError::DatasourceProviderNotKnownError</span> {
+        <span class="ident">DatamodelErrorKind::DatasourceProviderNotKnownError</span> {
             <span class="ident">provider</span>: <span class="ident">String::from</span>(<span class="ident">provider</span>),
             <span class="ident">span</span>,
         }
+        .<span class="ident">into</span>()
     }
 
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new_shadow_database_is_same_as_main_url_error</span>(<span class="ident">source_name</span>: <span class="ident">String</span>, <span class="ident">span</span>: <span class="ident">Span</span>) -&gt; <span class="ident">DatamodelError</span> {
-        <span class="ident">DatamodelError::ShadowDatabaseUrlIsSameAsMainUrl</span> { <span class="ident">source_name</span>, <span class="ident">span</span> }
+        <span class="ident">DatamodelErrorKind::ShadowDatabaseUrlIsSameAsMainUrl</span> { <span class="ident">source_name</span>, <span class="ident">span</span> }.<span class="ident">into</span>()
     }
 
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new_preview_feature_not_known_error</span>(
@@ -942,71 +1197,105 @@
         <span class="ident">expected_preview_features</span>: <span class="ident">String</span>,
         <span class="ident">span</span>: <span class="ident">Span</span>,
     ) -&gt; <span class="ident">DatamodelError</span> {
-        <span class="ident">DatamodelError::PreviewFeatureNotKnownError</span> {
+        <span class="ident">DatamodelErrorKind::PreviewFeatureNotKnownError</span> {
             <span class="ident">preview_feature</span>: <span class="ident">String::from</span>(<span class="ident">preview_feature</span>),
             <span class="ident">expected_preview_features</span>,
             <span class="ident">span</span>,
         }
+        .<span class="ident">into</span>()
     }
 
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new_value_parser_error</span>(<span class="ident">expected_type</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>, <span class="ident">parser_error</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>, <span class="ident">raw</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>, <span class="ident">span</span>: <span class="ident">Span</span>) -&gt; <span class="ident">DatamodelError</span> {
-        <span class="ident">DatamodelError::ValueParserError</span> {
+        <span class="ident">DatamodelErrorKind::ValueParserError</span> {
             <span class="ident">expected_type</span>: <span class="ident">String::from</span>(<span class="ident">expected_type</span>),
             <span class="ident">parser_error</span>: <span class="ident">String::from</span>(<span class="ident">parser_error</span>),
             <span class="ident">raw</span>: <span class="ident">String::from</span>(<span class="ident">raw</span>),
             <span class="ident">span</span>,
         }
+        .<span class="ident">into</span>()
+    }
+
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new_native_type_argument_count_mismatch_error</span>(
+        <span class="ident">native_type</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>,
+        <span class="ident">required_count</span>: <span class="ident">usize</span>,
+        <span class="ident">given_count</span>: <span class="ident">usize</span>,
+        <span class="ident">span</span>: <span class="ident">Span</span>,
+    ) -&gt; <span class="ident">DatamodelError</span> {
+        <span class="ident">DatamodelErrorKind::NativeTypeArgumentCountMismatchError</span> {
+            <span class="ident">native_type</span>: <span class="ident">String::from</span>(<span class="ident">native_type</span>),
+            <span class="ident">required_count</span>,
+            <span class="ident">given_count</span>,
+            <span class="ident">span</span>,
+        }
+        .<span class="ident">into</span>()
+    }
+
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new_native_type_name_unknown</span>(<span class="ident">connector_name</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>, <span class="ident">native_type</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>, <span class="ident">span</span>: <span class="ident">Span</span>) -&gt; <span class="ident">DatamodelError</span> {
+        <span class="kw">let</span> <span class="ident">msg</span> <span class="op">=</span> <span class="macro">format!</span>(
+            <span class="string">&quot;Native type {} is not supported for {} connector.&quot;</span>,
+            <span class="ident">native_type</span>, <span class="ident">connector_name</span>
+        );
+        <span class="ident">DatamodelError::new</span>(<span class="ident">msg</span>.<span class="ident">into</span>(), <span class="ident">span</span>)
+    }
+
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new_native_type_parser_error</span>(<span class="ident">native_type</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>, <span class="ident">span</span>: <span class="ident">Span</span>) -&gt; <span class="ident">DatamodelError</span> {
+        <span class="ident">DatamodelErrorKind::InvalidNativeType</span> {
+            <span class="ident">native_type</span>: <span class="ident">String::from</span>(<span class="ident">native_type</span>),
+            <span class="ident">span</span>,
+        }
+        .<span class="ident">into</span>()
     }
 
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new_type_mismatch_error</span>(<span class="ident">expected_type</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>, <span class="ident">received_type</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>, <span class="ident">raw</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>, <span class="ident">span</span>: <span class="ident">Span</span>) -&gt; <span class="ident">DatamodelError</span> {
-        <span class="ident">DatamodelError::TypeMismatchError</span> {
+        <span class="ident">DatamodelErrorKind::TypeMismatchError</span> {
             <span class="ident">expected_type</span>: <span class="ident">String::from</span>(<span class="ident">expected_type</span>),
             <span class="ident">received_type</span>: <span class="ident">String::from</span>(<span class="ident">received_type</span>),
             <span class="ident">raw</span>: <span class="ident">String::from</span>(<span class="ident">raw</span>),
             <span class="ident">span</span>,
         }
+        .<span class="ident">into</span>()
     }
 
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">span</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">Span</span> {
-        <span class="kw">match</span> <span class="self">self</span> {
-            <span class="ident">DatamodelError::ArgumentNotFound</span> { <span class="ident">span</span>, .. } =&gt; <span class="kw-2">*</span><span class="ident">span</span>,
-            <span class="ident">DatamodelError::AttributeArgumentNotFound</span> { <span class="ident">span</span>, .. } =&gt; <span class="kw-2">*</span><span class="ident">span</span>,
-            <span class="ident">DatamodelError::ArgumentCountMissmatch</span> { <span class="ident">span</span>, .. } =&gt; <span class="kw-2">*</span><span class="ident">span</span>,
-            <span class="ident">DatamodelError::SourceArgumentNotFound</span> { <span class="ident">span</span>, .. } =&gt; <span class="kw-2">*</span><span class="ident">span</span>,
-            <span class="ident">DatamodelError::GeneratorArgumentNotFound</span> { <span class="ident">span</span>, .. } =&gt; <span class="kw-2">*</span><span class="ident">span</span>,
-            <span class="ident">DatamodelError::AttributeValidationError</span> { <span class="ident">span</span>, .. } =&gt; <span class="kw-2">*</span><span class="ident">span</span>,
-            <span class="ident">DatamodelError::AttributeNotKnownError</span> { <span class="ident">span</span>, .. } =&gt; <span class="kw-2">*</span><span class="ident">span</span>,
-            <span class="ident">DatamodelError::ReservedScalarTypeError</span> { <span class="ident">span</span>, .. } =&gt; <span class="kw-2">*</span><span class="ident">span</span>,
-            <span class="ident">DatamodelError::FunctionNotKnownError</span> { <span class="ident">span</span>, .. } =&gt; <span class="kw-2">*</span><span class="ident">span</span>,
-            <span class="ident">DatamodelError::DatasourceProviderNotKnownError</span> { <span class="ident">span</span>, .. } =&gt; <span class="kw-2">*</span><span class="ident">span</span>,
-            <span class="ident">DatamodelError::LiteralParseError</span> { <span class="ident">span</span>, .. } =&gt; <span class="kw-2">*</span><span class="ident">span</span>,
-            <span class="ident">DatamodelError::TypeNotFoundError</span> { <span class="ident">span</span>, .. } =&gt; <span class="kw-2">*</span><span class="ident">span</span>,
-            <span class="ident">DatamodelError::ScalarTypeNotFoundError</span> { <span class="ident">span</span>, .. } =&gt; <span class="kw-2">*</span><span class="ident">span</span>,
-            <span class="ident">DatamodelError::ParserError</span> { <span class="ident">span</span>, .. } =&gt; <span class="kw-2">*</span><span class="ident">span</span>,
-            <span class="ident">DatamodelError::FunctionalEvaluationError</span> { <span class="ident">span</span>, .. } =&gt; <span class="kw-2">*</span><span class="ident">span</span>,
-            <span class="ident">DatamodelError::EnvironmentFunctionalEvaluationError</span> { <span class="ident">span</span>, .. } =&gt; <span class="kw-2">*</span><span class="ident">span</span>,
-            <span class="ident">DatamodelError::TypeMismatchError</span> { <span class="ident">span</span>, .. } =&gt; <span class="kw-2">*</span><span class="ident">span</span>,
-            <span class="ident">DatamodelError::ValueParserError</span> { <span class="ident">span</span>, .. } =&gt; <span class="kw-2">*</span><span class="ident">span</span>,
-            <span class="ident">DatamodelError::ValidationError</span> { <span class="ident">span</span>, .. } =&gt; <span class="kw-2">*</span><span class="ident">span</span>,
-            <span class="ident">DatamodelError::LegacyParserError</span> { <span class="ident">span</span>, .. } =&gt; <span class="kw-2">*</span><span class="ident">span</span>,
-            <span class="ident">DatamodelError::ModelValidationError</span> { <span class="ident">span</span>, .. } =&gt; <span class="kw-2">*</span><span class="ident">span</span>,
-            <span class="ident">DatamodelError::DuplicateAttributeError</span> { <span class="ident">span</span>, .. } =&gt; <span class="kw-2">*</span><span class="ident">span</span>,
-            <span class="ident">DatamodelError::DuplicateConfigKeyError</span> { <span class="ident">span</span>, .. } =&gt; <span class="kw-2">*</span><span class="ident">span</span>,
-            <span class="ident">DatamodelError::DuplicateTopError</span> { <span class="ident">span</span>, .. } =&gt; <span class="kw-2">*</span><span class="ident">span</span>,
-            <span class="ident">DatamodelError::DuplicateFieldError</span> { <span class="ident">span</span>, .. } =&gt; <span class="kw-2">*</span><span class="ident">span</span>,
-            <span class="ident">DatamodelError::DuplicateEnumValueError</span> { <span class="ident">span</span>, .. } =&gt; <span class="kw-2">*</span><span class="ident">span</span>,
-            <span class="ident">DatamodelError::DuplicateArgumentError</span> { <span class="ident">span</span>, .. } =&gt; <span class="kw-2">*</span><span class="ident">span</span>,
-            <span class="ident">DatamodelError::DuplicateModelDatabaseNameError</span> { <span class="ident">span</span>, .. } =&gt; <span class="kw-2">*</span><span class="ident">span</span>,
-            <span class="ident">DatamodelError::DuplicateDefaultArgumentError</span> { <span class="ident">span</span>, .. } =&gt; <span class="kw-2">*</span><span class="ident">span</span>,
-            <span class="ident">DatamodelError::UnusedArgumentError</span> { <span class="ident">span</span>, .. } =&gt; <span class="kw-2">*</span><span class="ident">span</span>,
-            <span class="ident">DatamodelError::ScalarListFieldsAreNotSupported</span> { <span class="ident">span</span>, .. } =&gt; <span class="kw-2">*</span><span class="ident">span</span>,
-            <span class="ident">DatamodelError::FieldValidationError</span> { <span class="ident">span</span>, .. } =&gt; <span class="kw-2">*</span><span class="ident">span</span>,
-            <span class="ident">DatamodelError::SourceValidationError</span> { <span class="ident">span</span>, .. } =&gt; <span class="kw-2">*</span><span class="ident">span</span>,
-            <span class="ident">DatamodelError::EnumValidationError</span> { <span class="ident">span</span>, .. } =&gt; <span class="kw-2">*</span><span class="ident">span</span>,
-            <span class="ident">DatamodelError::ConnectorError</span> { <span class="ident">span</span>, .. } =&gt; <span class="kw-2">*</span><span class="ident">span</span>,
-            <span class="ident">DatamodelError::PreviewFeatureNotKnownError</span> { <span class="ident">span</span>, .. } =&gt; <span class="kw-2">*</span><span class="ident">span</span>,
-            <span class="ident">DatamodelError::ShadowDatabaseUrlIsSameAsMainUrl</span> { <span class="ident">span</span>, .. } =&gt; <span class="kw-2">*</span><span class="ident">span</span>,
-            <span class="ident">DatamodelError::CompositeTypeValidationError</span> { <span class="ident">span</span>, .. } =&gt; <span class="kw-2">*</span><span class="ident">span</span>,
+        <span class="kw">match</span> <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="number">0</span> {
+            <span class="ident">DatamodelErrorKind::ArgumentNotFound</span> { <span class="ident">span</span>, .. } =&gt; <span class="kw-2">*</span><span class="ident">span</span>,
+            <span class="ident">DatamodelErrorKind::AttributeArgumentNotFound</span> { <span class="ident">span</span>, .. } =&gt; <span class="kw-2">*</span><span class="ident">span</span>,
+            <span class="ident">DatamodelErrorKind::ArgumentCountMismatch</span> { <span class="ident">span</span>, .. } =&gt; <span class="kw-2">*</span><span class="ident">span</span>,
+            <span class="ident">DatamodelErrorKind::SourceArgumentNotFound</span> { <span class="ident">span</span>, .. } =&gt; <span class="kw-2">*</span><span class="ident">span</span>,
+            <span class="ident">DatamodelErrorKind::GeneratorArgumentNotFound</span> { <span class="ident">span</span>, .. } =&gt; <span class="kw-2">*</span><span class="ident">span</span>,
+            <span class="ident">DatamodelErrorKind::AttributeNotKnownError</span> { <span class="ident">span</span>, .. } =&gt; <span class="kw-2">*</span><span class="ident">span</span>,
+            <span class="ident">DatamodelErrorKind::ReservedScalarTypeError</span> { <span class="ident">span</span>, .. } =&gt; <span class="kw-2">*</span><span class="ident">span</span>,
+            <span class="ident">DatamodelErrorKind::DatasourceProviderNotKnownError</span> { <span class="ident">span</span>, .. } =&gt; <span class="kw-2">*</span><span class="ident">span</span>,
+            <span class="ident">DatamodelErrorKind::LiteralParseError</span> { <span class="ident">span</span>, .. } =&gt; <span class="kw-2">*</span><span class="ident">span</span>,
+            <span class="ident">DatamodelErrorKind::NativeTypeArgumentCountMismatchError</span> { <span class="ident">span</span>, .. } =&gt; <span class="kw-2">*</span><span class="ident">span</span>,
+            <span class="ident">DatamodelErrorKind::TypeNotFoundError</span> { <span class="ident">span</span>, .. } =&gt; <span class="kw-2">*</span><span class="ident">span</span>,
+            <span class="ident">DatamodelErrorKind::ScalarTypeNotFoundError</span> { <span class="ident">span</span>, .. } =&gt; <span class="kw-2">*</span><span class="ident">span</span>,
+            <span class="ident">DatamodelErrorKind::ParserError</span> { <span class="ident">span</span>, .. } =&gt; <span class="kw-2">*</span><span class="ident">span</span>,
+            <span class="ident">DatamodelErrorKind::EnvironmentFunctionalEvaluationError</span> { <span class="ident">span</span>, .. } =&gt; <span class="kw-2">*</span><span class="ident">span</span>,
+            <span class="ident">DatamodelErrorKind::TypeMismatchError</span> { <span class="ident">span</span>, .. } =&gt; <span class="kw-2">*</span><span class="ident">span</span>,
+            <span class="ident">DatamodelErrorKind::ValueParserError</span> { <span class="ident">span</span>, .. } =&gt; <span class="kw-2">*</span><span class="ident">span</span>,
+            <span class="ident">DatamodelErrorKind::ValidationError</span> { <span class="ident">span</span>, .. } =&gt; <span class="kw-2">*</span><span class="ident">span</span>,
+            <span class="ident">DatamodelErrorKind::ModelValidationError</span> { <span class="ident">span</span>, .. } =&gt; <span class="kw-2">*</span><span class="ident">span</span>,
+            <span class="ident">DatamodelErrorKind::DuplicateAttributeError</span> { <span class="ident">span</span>, .. } =&gt; <span class="kw-2">*</span><span class="ident">span</span>,
+            <span class="ident">DatamodelErrorKind::DuplicateConfigKeyError</span> { <span class="ident">span</span>, .. } =&gt; <span class="kw-2">*</span><span class="ident">span</span>,
+            <span class="ident">DatamodelErrorKind::DuplicateTopError</span> { <span class="ident">span</span>, .. } =&gt; <span class="kw-2">*</span><span class="ident">span</span>,
+            <span class="ident">DatamodelErrorKind::DuplicateFieldError</span> { <span class="ident">span</span>, .. } =&gt; <span class="kw-2">*</span><span class="ident">span</span>,
+            <span class="ident">DatamodelErrorKind::DuplicateEnumValueError</span> { <span class="ident">span</span>, .. } =&gt; <span class="kw-2">*</span><span class="ident">span</span>,
+            <span class="ident">DatamodelErrorKind::DuplicateArgumentError</span> { <span class="ident">span</span>, .. } =&gt; <span class="kw-2">*</span><span class="ident">span</span>,
+            <span class="ident">DatamodelErrorKind::DuplicateModelDatabaseNameError</span> { <span class="ident">span</span>, .. } =&gt; <span class="kw-2">*</span><span class="ident">span</span>,
+            <span class="ident">DatamodelErrorKind::DuplicateDefaultArgumentError</span> { <span class="ident">span</span>, .. } =&gt; <span class="kw-2">*</span><span class="ident">span</span>,
+            <span class="ident">DatamodelErrorKind::UnusedArgumentError</span> { <span class="ident">span</span>, .. } =&gt; <span class="kw-2">*</span><span class="ident">span</span>,
+            <span class="ident">DatamodelErrorKind::ScalarListFieldsAreNotSupported</span> { <span class="ident">span</span>, .. } =&gt; <span class="kw-2">*</span><span class="ident">span</span>,
+            <span class="ident">DatamodelErrorKind::FieldValidationError</span> { <span class="ident">span</span>, .. } =&gt; <span class="kw-2">*</span><span class="ident">span</span>,
+            <span class="ident">DatamodelErrorKind::SourceValidationError</span> { <span class="ident">span</span>, .. } =&gt; <span class="kw-2">*</span><span class="ident">span</span>,
+            <span class="ident">DatamodelErrorKind::EnumValidationError</span> { <span class="ident">span</span>, .. } =&gt; <span class="kw-2">*</span><span class="ident">span</span>,
+            <span class="ident">DatamodelErrorKind::Raw</span> { <span class="ident">span</span>, .. } =&gt; <span class="kw-2">*</span><span class="ident">span</span>,
+            <span class="ident">DatamodelErrorKind::PreviewFeatureNotKnownError</span> { <span class="ident">span</span>, .. } =&gt; <span class="kw-2">*</span><span class="ident">span</span>,
+            <span class="ident">DatamodelErrorKind::ShadowDatabaseUrlIsSameAsMainUrl</span> { <span class="ident">span</span>, .. } =&gt; <span class="kw-2">*</span><span class="ident">span</span>,
+            <span class="ident">DatamodelErrorKind::CompositeTypeValidationError</span> { <span class="ident">span</span>, .. } =&gt; <span class="kw-2">*</span><span class="ident">span</span>,
+            <span class="ident">DatamodelErrorKind::PropertyNotKnownError</span> { <span class="ident">span</span>, .. } =&gt; <span class="kw-2">*</span><span class="ident">span</span>,
+            <span class="ident">DatamodelErrorKind::InvalidNativeType</span> { <span class="ident">span</span>, .. } =&gt; <span class="kw-2">*</span><span class="ident">span</span>,
+            <span class="ident">DatamodelErrorKind::NativeTypesNotSupported</span> { <span class="ident">span</span>, .. } =&gt; <span class="kw-2">*</span><span class="ident">span</span>,
         }
     }
 
@@ -1014,11 +1303,10 @@
         <span class="self">self</span>.<span class="ident">to_string</span>()
     }
 
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">pretty_print</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">f</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="kw">dyn</span> <span class="ident">std::io::Write</span>, <span class="ident">file_name</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>, <span class="ident">text</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>) -&gt; <span class="ident">std::io::Result</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">pretty_print</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">f</span>: <span class="kw-2">&amp;mut</span> <span class="kw">dyn</span> <span class="ident">std::io::Write</span>, <span class="ident">file_name</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>, <span class="ident">text</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>) -&gt; <span class="ident">std::io::Result</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
         <span class="ident">pretty_print</span>(<span class="ident">f</span>, <span class="ident">file_name</span>, <span class="ident">text</span>, <span class="self">self</span>.<span class="ident">span</span>(), <span class="self">self</span>.<span class="ident">description</span>().<span class="ident">as_str</span>())
     }
 }
 </code></pre></div>
-</section><section id="search" class="content hidden"></section><div id="rustdoc-vars" data-root-path="../../" data-current-crate="diagnostics" data-search-index-js="../../search-index.js" data-search-js="../../search.js"></div>
-    <script src="../../main.js"></script><script src="../../source-script.js"></script><script src="../../source-files.js"></script>
+</section><section id="search" class="content hidden"></section></div></main><div id="rustdoc-vars" data-root-path="../../" data-current-crate="diagnostics" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.61.0 (fe5b13d68 2022-05-18)" ></div>
 </body></html>

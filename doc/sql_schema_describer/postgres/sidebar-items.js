@@ -1,1 +1,1 @@
-initSidebarItems({"enum":[["Circumstances",""]],"struct":[["SqlSchemaDescriber",""]]});
+initSidebarItems({"enum":[["Circumstances",""],["SQLOperatorClassKind",""],["SqlIndexAlgorithm",""]],"struct":[["PostgresSchemaExt",""],["SQLOperatorClass",""],["Sequence","A PostgreSQL sequence. https://www.postgresql.org/docs/current/view-pg-sequences.html"],["SqlSchemaDescriber",""]]});

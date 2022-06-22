@@ -1,102 +1,107 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `migration-engine&#x2F;migration-engine-tests&#x2F;src&#x2F;multi_engine_test_api.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>multi_engine_test_api.rs - source</title><link rel="stylesheet" type="text/css" href="../../normalize.css"><link rel="stylesheet" type="text/css" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../light.css"  id="themeStyle"><link rel="stylesheet" type="text/css" href="../../dark.css" disabled ><link rel="stylesheet" type="text/css" href="../../ayu.css" disabled ><script id="default-settings" ></script><script src="../../storage.js"></script><script src="../../crates.js"></script><noscript><link rel="stylesheet" href="../../noscript.css"></noscript><link rel="alternate icon" type="image/png" href="../../favicon-16x16.png"><link rel="alternate icon" type="image/png" href="../../favicon-32x32.png"><link rel="icon" type="image/svg+xml" href="../../favicon.svg"><style type="text/css">#crate-search{background-image:url("../../down-arrow.svg");}</style></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu" role="button">&#9776;</div><a href='../../migration_engine_tests/index.html'><div class='logo-container rust-logo'><img src='../../rust-logo.png' alt='logo'></div></a></nav><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!" aria-haspopup="menu" title="themes"><img width="18" height="18" alt="Pick another theme!" src="../../brush.svg"></button><div id="theme-choices" role="menu"></div></div><nav class="sub"><form class="search-form"><div class="search-container"><div><select id="crate-search"><option value="All crates">All crates</option></select><input class="search-input" name="search" disabled autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"></div><button type="button" id="help-button" title="help">?</button><a id="settings-menu" href="../../settings.html" title="settings"><img width="18" height="18" alt="Change settings" src="../../wheel.svg"></a></div></form></nav><section id="main" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">  1</span>
-<span id="2">  2</span>
-<span id="3">  3</span>
-<span id="4">  4</span>
-<span id="5">  5</span>
-<span id="6">  6</span>
-<span id="7">  7</span>
-<span id="8">  8</span>
-<span id="9">  9</span>
-<span id="10"> 10</span>
-<span id="11"> 11</span>
-<span id="12"> 12</span>
-<span id="13"> 13</span>
-<span id="14"> 14</span>
-<span id="15"> 15</span>
-<span id="16"> 16</span>
-<span id="17"> 17</span>
-<span id="18"> 18</span>
-<span id="19"> 19</span>
-<span id="20"> 20</span>
-<span id="21"> 21</span>
-<span id="22"> 22</span>
-<span id="23"> 23</span>
-<span id="24"> 24</span>
-<span id="25"> 25</span>
-<span id="26"> 26</span>
-<span id="27"> 27</span>
-<span id="28"> 28</span>
-<span id="29"> 29</span>
-<span id="30"> 30</span>
-<span id="31"> 31</span>
-<span id="32"> 32</span>
-<span id="33"> 33</span>
-<span id="34"> 34</span>
-<span id="35"> 35</span>
-<span id="36"> 36</span>
-<span id="37"> 37</span>
-<span id="38"> 38</span>
-<span id="39"> 39</span>
-<span id="40"> 40</span>
-<span id="41"> 41</span>
-<span id="42"> 42</span>
-<span id="43"> 43</span>
-<span id="44"> 44</span>
-<span id="45"> 45</span>
-<span id="46"> 46</span>
-<span id="47"> 47</span>
-<span id="48"> 48</span>
-<span id="49"> 49</span>
-<span id="50"> 50</span>
-<span id="51"> 51</span>
-<span id="52"> 52</span>
-<span id="53"> 53</span>
-<span id="54"> 54</span>
-<span id="55"> 55</span>
-<span id="56"> 56</span>
-<span id="57"> 57</span>
-<span id="58"> 58</span>
-<span id="59"> 59</span>
-<span id="60"> 60</span>
-<span id="61"> 61</span>
-<span id="62"> 62</span>
-<span id="63"> 63</span>
-<span id="64"> 64</span>
-<span id="65"> 65</span>
-<span id="66"> 66</span>
-<span id="67"> 67</span>
-<span id="68"> 68</span>
-<span id="69"> 69</span>
-<span id="70"> 70</span>
-<span id="71"> 71</span>
-<span id="72"> 72</span>
-<span id="73"> 73</span>
-<span id="74"> 74</span>
-<span id="75"> 75</span>
-<span id="76"> 76</span>
-<span id="77"> 77</span>
-<span id="78"> 78</span>
-<span id="79"> 79</span>
-<span id="80"> 80</span>
-<span id="81"> 81</span>
-<span id="82"> 82</span>
-<span id="83"> 83</span>
-<span id="84"> 84</span>
-<span id="85"> 85</span>
-<span id="86"> 86</span>
-<span id="87"> 87</span>
-<span id="88"> 88</span>
-<span id="89"> 89</span>
-<span id="90"> 90</span>
-<span id="91"> 91</span>
-<span id="92"> 92</span>
-<span id="93"> 93</span>
-<span id="94"> 94</span>
-<span id="95"> 95</span>
-<span id="96"> 96</span>
-<span id="97"> 97</span>
-<span id="98"> 98</span>
-<span id="99"> 99</span>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `migration-engine/migration-engine-tests/src/multi_engine_test_api.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>multi_engine_test_api.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" type="text/css" href="../../normalize.css"><link rel="stylesheet" type="text/css" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../ayu.css" disabled><link rel="stylesheet" type="text/css" href="../../dark.css" disabled><link rel="stylesheet" type="text/css" href="../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../storage.js"></script><script src="../../crates.js"></script><script defer src="../../main.js"></script><script defer src="../../source-script.js"></script><script defer src="../../source-files.js"></script>
+    <noscript><link rel="stylesheet" href="../../noscript.css"></noscript><link rel="alternate icon" type="image/png" href="../../favicon-16x16.png"><link rel="alternate icon" type="image/png" href="../../favicon-32x32.png"><link rel="icon" type="image/svg+xml" href="../../favicon.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../migration_engine_tests/index.html"><div class="logo-container"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></div>
+        </a><h2 class="location"></h2>
+    </nav>
+    <nav class="sidebar"><a class="sidebar-logo" href="../../migration_engine_tests/index.html"><div class="logo-container"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></div>
+        </a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../migration_engine_tests/index.html"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></a><nav class="sub"><div class="theme-picker hidden"><button id="theme-picker" aria-label="Pick another theme!" aria-haspopup="menu" title="themes"><img width="22" height="22" alt="Pick another theme!" src="../../brush.svg"></button><div id="theme-choices" role="menu"></div></div><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><button type="button" id="help-button" title="help">?</button><a id="settings-menu" href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../wheel.svg"></a></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
+<span id="2">2</span>
+<span id="3">3</span>
+<span id="4">4</span>
+<span id="5">5</span>
+<span id="6">6</span>
+<span id="7">7</span>
+<span id="8">8</span>
+<span id="9">9</span>
+<span id="10">10</span>
+<span id="11">11</span>
+<span id="12">12</span>
+<span id="13">13</span>
+<span id="14">14</span>
+<span id="15">15</span>
+<span id="16">16</span>
+<span id="17">17</span>
+<span id="18">18</span>
+<span id="19">19</span>
+<span id="20">20</span>
+<span id="21">21</span>
+<span id="22">22</span>
+<span id="23">23</span>
+<span id="24">24</span>
+<span id="25">25</span>
+<span id="26">26</span>
+<span id="27">27</span>
+<span id="28">28</span>
+<span id="29">29</span>
+<span id="30">30</span>
+<span id="31">31</span>
+<span id="32">32</span>
+<span id="33">33</span>
+<span id="34">34</span>
+<span id="35">35</span>
+<span id="36">36</span>
+<span id="37">37</span>
+<span id="38">38</span>
+<span id="39">39</span>
+<span id="40">40</span>
+<span id="41">41</span>
+<span id="42">42</span>
+<span id="43">43</span>
+<span id="44">44</span>
+<span id="45">45</span>
+<span id="46">46</span>
+<span id="47">47</span>
+<span id="48">48</span>
+<span id="49">49</span>
+<span id="50">50</span>
+<span id="51">51</span>
+<span id="52">52</span>
+<span id="53">53</span>
+<span id="54">54</span>
+<span id="55">55</span>
+<span id="56">56</span>
+<span id="57">57</span>
+<span id="58">58</span>
+<span id="59">59</span>
+<span id="60">60</span>
+<span id="61">61</span>
+<span id="62">62</span>
+<span id="63">63</span>
+<span id="64">64</span>
+<span id="65">65</span>
+<span id="66">66</span>
+<span id="67">67</span>
+<span id="68">68</span>
+<span id="69">69</span>
+<span id="70">70</span>
+<span id="71">71</span>
+<span id="72">72</span>
+<span id="73">73</span>
+<span id="74">74</span>
+<span id="75">75</span>
+<span id="76">76</span>
+<span id="77">77</span>
+<span id="78">78</span>
+<span id="79">79</span>
+<span id="80">80</span>
+<span id="81">81</span>
+<span id="82">82</span>
+<span id="83">83</span>
+<span id="84">84</span>
+<span id="85">85</span>
+<span id="86">86</span>
+<span id="87">87</span>
+<span id="88">88</span>
+<span id="89">89</span>
+<span id="90">90</span>
+<span id="91">91</span>
+<span id="92">92</span>
+<span id="93">93</span>
+<span id="94">94</span>
+<span id="95">95</span>
+<span id="96">96</span>
+<span id="97">97</span>
+<span id="98">98</span>
+<span id="99">99</span>
 <span id="100">100</span>
 <span id="101">101</span>
 <span id="102">102</span>
@@ -307,28 +312,36 @@
 <span id="307">307</span>
 <span id="308">308</span>
 <span id="309">309</span>
+<span id="310">310</span>
+<span id="311">311</span>
+<span id="312">312</span>
+<span id="313">313</span>
+<span id="314">314</span>
+<span id="315">315</span>
+<span id="316">316</span>
+<span id="317">317</span>
+<span id="318">318</span>
+<span id="319">319</span>
 </pre><pre class="rust"><code><span class="attribute">#![<span class="ident">deny</span>(<span class="ident">missing_docs</span>)]</span>
 
 <span class="doccomment">//! A TestApi that is initialized without IO or async code and can instantiate</span>
 <span class="doccomment">//! multiple migration engines.</span>
 
-<span class="kw">use</span> <span class="ident">datamodel::common::preview_features::PreviewFeature</span>;
-<span class="kw">use</span> <span class="ident">quaint::prelude::ConnectionInfo</span>;
 <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">test_macros::test_connector</span>;
 <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">test_setup::sqlite_test_url</span>;
-<span class="kw">pub</span> <span class="kw">use</span> <span class="ident">test_setup</span>::{<span class="ident">BitFlags</span>, <span class="ident">Capabilities</span>, <span class="ident">Tags</span>};
+<span class="kw">pub</span> <span class="kw">use</span> <span class="ident">test_setup</span>::{<span class="ident">runtime::run_with_thread_local_runtime</span> <span class="kw">as</span> <span class="ident">tok</span>, <span class="ident">BitFlags</span>, <span class="ident">Capabilities</span>, <span class="ident">Tags</span>};
 
 <span class="kw">use</span> <span class="kw">crate</span>::{
     <span class="ident">assertions::SchemaAssertion</span>,
     <span class="ident">commands</span>::{<span class="ident">ApplyMigrations</span>, <span class="ident">CreateMigration</span>, <span class="ident">DiagnoseMigrationHistory</span>, <span class="ident">Reset</span>, <span class="ident">SchemaPush</span>},
 };
-<span class="kw">use</span> <span class="ident">migration_core::GenericApi</span>;
+<span class="kw">use</span> <span class="ident">datamodel::common::preview_features::PreviewFeature</span>;
+<span class="kw">use</span> <span class="ident">migration_core::migration_connector</span>::{<span class="ident">ConnectorParams</span>, <span class="ident">MigrationConnector</span>};
 <span class="kw">use</span> <span class="ident">quaint</span>::{
-    <span class="ident">prelude</span>::{<span class="ident">Queryable</span>, <span class="ident">ResultSet</span>},
+    <span class="ident">prelude</span>::{<span class="ident">ConnectionInfo</span>, <span class="ident">Queryable</span>, <span class="ident">ResultSet</span>},
     <span class="ident">single::Quaint</span>,
 };
 <span class="kw">use</span> <span class="ident">sql_migration_connector::SqlMigrationConnector</span>;
-<span class="kw">use</span> <span class="ident">std::future::Future</span>;
 <span class="kw">use</span> <span class="ident">tempfile::TempDir</span>;
 <span class="kw">use</span> <span class="ident">test_setup</span>::{<span class="ident">DatasourceBlock</span>, <span class="ident">TestApiArgs</span>};
 
@@ -337,14 +350,12 @@
     <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">args</span>: <span class="ident">TestApiArgs</span>,
     <span class="ident">connection_string</span>: <span class="ident">String</span>,
     <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">admin_conn</span>: <span class="ident">Quaint</span>,
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">rt</span>: <span class="ident">tokio::runtime::Runtime</span>,
     <span class="ident">preview_features</span>: <span class="ident">BitFlags</span><span class="op">&lt;</span><span class="ident">PreviewFeature</span><span class="op">&gt;</span>,
 }
 
 <span class="kw">impl</span> <span class="ident">TestApi</span> {
     <span class="doccomment">/// Initializer, called by the test macros.</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new</span>(<span class="ident">args</span>: <span class="ident">TestApiArgs</span>) -&gt; <span class="self">Self</span> {
-        <span class="kw">let</span> <span class="ident">rt</span> <span class="op">=</span> <span class="ident">test_setup::runtime::test_tokio_runtime</span>();
         <span class="kw">let</span> <span class="ident">tags</span> <span class="op">=</span> <span class="ident">args</span>.<span class="ident">tags</span>();
 
         <span class="kw">let</span> <span class="ident">preview_features</span> <span class="op">=</span> <span class="ident">args</span>
@@ -354,30 +365,31 @@
             .<span class="ident">collect</span>();
 
         <span class="kw">let</span> (<span class="ident">admin_conn</span>, <span class="ident">connection_string</span>) <span class="op">=</span> <span class="kw">if</span> <span class="ident">tags</span>.<span class="ident">contains</span>(<span class="ident">Tags::Postgres</span>) {
-            <span class="kw">let</span> (<span class="kw">_</span>, <span class="ident">q</span>, <span class="ident">cs</span>) <span class="op">=</span> <span class="ident">rt</span>.<span class="ident">block_on</span>(<span class="ident">args</span>.<span class="ident">create_postgres_database</span>());
+            <span class="kw">let</span> (<span class="kw">_</span>, <span class="ident">q</span>, <span class="ident">cs</span>) <span class="op">=</span> <span class="ident">tok</span>(<span class="ident">args</span>.<span class="ident">create_postgres_database</span>());
             (<span class="ident">q</span>, <span class="ident">cs</span>)
         } <span class="kw">else</span> <span class="kw">if</span> <span class="ident">tags</span>.<span class="ident">contains</span>(<span class="ident">Tags::Vitess</span>) {
-            <span class="kw">let</span> <span class="ident">conn</span> <span class="op">=</span> <span class="ident">SqlMigrationConnector::new</span>(
-                <span class="ident">args</span>.<span class="ident">database_url</span>().<span class="ident">to_owned</span>(),
+            <span class="kw">let</span> <span class="ident">params</span> <span class="op">=</span> <span class="ident">ConnectorParams</span> {
+                <span class="ident">connection_string</span>: <span class="ident">args</span>.<span class="ident">database_url</span>().<span class="ident">to_owned</span>(),
                 <span class="ident">preview_features</span>,
-                <span class="ident">args</span>.<span class="ident">shadow_database_url</span>().<span class="ident">map</span>(<span class="ident">String::from</span>),
-            )
-            .<span class="ident">unwrap</span>();
-            <span class="ident">rt</span>.<span class="ident">block_on</span>(<span class="ident">conn</span>.<span class="ident">reset</span>()).<span class="ident">unwrap</span>();
+                <span class="ident">shadow_database_connection_string</span>: <span class="ident">args</span>.<span class="ident">shadow_database_url</span>().<span class="ident">map</span>(<span class="ident">String::from</span>),
+            };
+            <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">conn</span> <span class="op">=</span> <span class="ident">SqlMigrationConnector::new_mysql</span>();
+            <span class="ident">conn</span>.<span class="ident">set_params</span>(<span class="ident">params</span>).<span class="ident">unwrap</span>();
+            <span class="ident">tok</span>(<span class="ident">conn</span>.<span class="ident">reset</span>(<span class="bool-val">false</span>)).<span class="ident">unwrap</span>();
 
             (
-                <span class="ident">rt</span>.<span class="ident">block_on</span>(<span class="ident">Quaint::new</span>(<span class="ident">args</span>.<span class="ident">database_url</span>())).<span class="ident">unwrap</span>(),
+                <span class="ident">tok</span>(<span class="ident">Quaint::new</span>(<span class="ident">args</span>.<span class="ident">database_url</span>())).<span class="ident">unwrap</span>(),
                 <span class="ident">args</span>.<span class="ident">database_url</span>().<span class="ident">to_owned</span>(),
             )
         } <span class="kw">else</span> <span class="kw">if</span> <span class="ident">tags</span>.<span class="ident">contains</span>(<span class="ident">Tags::Mysql</span>) {
-            <span class="kw">let</span> (<span class="kw">_</span>, <span class="ident">cs</span>) <span class="op">=</span> <span class="ident">rt</span>.<span class="ident">block_on</span>(<span class="ident">args</span>.<span class="ident">create_mysql_database</span>());
-            (<span class="ident">rt</span>.<span class="ident">block_on</span>(<span class="ident">Quaint::new</span>(<span class="kw-2">&amp;</span><span class="ident">cs</span>)).<span class="ident">unwrap</span>(), <span class="ident">cs</span>)
+            <span class="kw">let</span> (<span class="kw">_</span>, <span class="ident">cs</span>) <span class="op">=</span> <span class="ident">tok</span>(<span class="ident">args</span>.<span class="ident">create_mysql_database</span>());
+            (<span class="ident">tok</span>(<span class="ident">Quaint::new</span>(<span class="kw-2">&amp;</span><span class="ident">cs</span>)).<span class="ident">unwrap</span>(), <span class="ident">cs</span>)
         } <span class="kw">else</span> <span class="kw">if</span> <span class="ident">tags</span>.<span class="ident">contains</span>(<span class="ident">Tags::Mssql</span>) {
-            <span class="ident">rt</span>.<span class="ident">block_on</span>(<span class="ident">args</span>.<span class="ident">create_mssql_database</span>())
+            <span class="ident">tok</span>(<span class="ident">args</span>.<span class="ident">create_mssql_database</span>())
         } <span class="kw">else</span> <span class="kw">if</span> <span class="ident">tags</span>.<span class="ident">contains</span>(<span class="ident">Tags::Sqlite</span>) {
             <span class="kw">let</span> <span class="ident">url</span> <span class="op">=</span> <span class="ident">test_setup::sqlite_test_url</span>(<span class="ident">args</span>.<span class="ident">test_function_name</span>());
 
-            (<span class="ident">rt</span>.<span class="ident">block_on</span>(<span class="ident">Quaint::new</span>(<span class="kw-2">&amp;</span><span class="ident">url</span>)).<span class="ident">unwrap</span>(), <span class="ident">url</span>)
+            (<span class="ident">tok</span>(<span class="ident">Quaint::new</span>(<span class="kw-2">&amp;</span><span class="ident">url</span>)).<span class="ident">unwrap</span>(), <span class="ident">url</span>)
         } <span class="kw">else</span> {
             <span class="macro">unreachable!</span>()
         };
@@ -386,24 +398,18 @@
             <span class="ident">args</span>,
             <span class="ident">connection_string</span>,
             <span class="ident">admin_conn</span>,
-            <span class="ident">rt</span>,
             <span class="ident">preview_features</span>,
         }
     }
 
-    <span class="doccomment">/// Block on a future</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">block_on</span><span class="op">&lt;</span><span class="ident">O</span>, <span class="ident">F</span>: <span class="ident">Future</span><span class="op">&lt;</span><span class="ident">Output</span> <span class="op">=</span> <span class="ident">O</span><span class="op">&gt;</span><span class="op">&gt;</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">f</span>: <span class="ident">F</span>) -&gt; <span class="ident">O</span> {
-        <span class="self">self</span>.<span class="ident">rt</span>.<span class="ident">block_on</span>(<span class="ident">f</span>)
-    }
-
     <span class="doccomment">/// Equivalent to quaint&#39;s query_raw()</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">query_raw</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">sql</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>, <span class="ident">params</span>: <span class="kw-2">&amp;</span>[<span class="ident">quaint::Value</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>]) -&gt; <span class="ident">quaint::Result</span><span class="op">&lt;</span><span class="ident">ResultSet</span><span class="op">&gt;</span> {
-        <span class="self">self</span>.<span class="ident">block_on</span>(<span class="self">self</span>.<span class="ident">admin_conn</span>.<span class="ident">query_raw</span>(<span class="ident">sql</span>, <span class="ident">params</span>))
+        <span class="ident">tok</span>(<span class="self">self</span>.<span class="ident">admin_conn</span>.<span class="ident">query_raw</span>(<span class="ident">sql</span>, <span class="ident">params</span>))
     }
 
     <span class="doccomment">/// Send a SQL command to the database, and expect it to succeed.</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">raw_cmd</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">sql</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>) {
-        <span class="self">self</span>.<span class="ident">rt</span>.<span class="ident">block_on</span>(<span class="self">self</span>.<span class="ident">admin_conn</span>.<span class="ident">raw_cmd</span>(<span class="ident">sql</span>)).<span class="ident">unwrap</span>()
+        <span class="ident">tok</span>(<span class="self">self</span>.<span class="ident">admin_conn</span>.<span class="ident">raw_cmd</span>(<span class="ident">sql</span>)).<span class="ident">unwrap</span>()
     }
 
     <span class="doccomment">/// The connection string for the database associated with the test.</span>
@@ -456,6 +462,11 @@
         <span class="self">self</span>.<span class="ident">tags</span>().<span class="ident">contains</span>(<span class="ident">Tags::Postgres</span>)
     }
 
+    <span class="doccomment">/// Returns true only when testing on postgres version 15.</span>
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">is_postgres_15</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">bool</span> {
+        <span class="self">self</span>.<span class="ident">tags</span>().<span class="ident">contains</span>(<span class="ident">Tags::Postgres15</span>)
+    }
+
     <span class="doccomment">/// Returns true only when testing on cockroach.</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">is_cockroach</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">bool</span> {
         <span class="self">self</span>.<span class="ident">tags</span>().<span class="ident">contains</span>(<span class="ident">Tags::CockroachDb</span>)
@@ -477,9 +488,8 @@
     }
 
     <span class="doccomment">/// Instantiate a new migration engine for the current database.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new_engine</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">EngineTestApi</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span> {
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new_engine</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">EngineTestApi</span> {
         <span class="kw">let</span> <span class="ident">shadow_db</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">args</span>.<span class="ident">shadow_database_url</span>().<span class="ident">as_ref</span>().<span class="ident">map</span>(<span class="ident">ToString::to_string</span>);
-
         <span class="self">self</span>.<span class="ident">new_engine_with_connection_strings</span>(<span class="self">self</span>.<span class="ident">connection_string</span>.<span class="ident">clone</span>(), <span class="ident">shadow_db</span>)
     }
 
@@ -487,17 +497,35 @@
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new_engine_with_connection_strings</span>(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         <span class="ident">connection_string</span>: <span class="ident">String</span>,
-        <span class="ident">shadow_db_connection_string</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">String</span><span class="op">&gt;</span>,
-    ) -&gt; <span class="ident">EngineTestApi</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span> {
+        <span class="ident">shadow_database_connection_string</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">String</span><span class="op">&gt;</span>,
+    ) -&gt; <span class="ident">EngineTestApi</span> {
         <span class="kw">let</span> <span class="ident">connection_info</span> <span class="op">=</span> <span class="ident">ConnectionInfo::from_url</span>(<span class="kw-2">&amp;</span><span class="ident">connection_string</span>).<span class="ident">unwrap</span>();
-        <span class="kw">let</span> <span class="ident">connector</span> <span class="op">=</span>
-            <span class="ident">SqlMigrationConnector::new</span>(<span class="ident">connection_string</span>, <span class="self">self</span>.<span class="ident">preview_features</span>, <span class="ident">shadow_db_connection_string</span>).<span class="ident">unwrap</span>();
+
+        <span class="kw">let</span> <span class="ident">params</span> <span class="op">=</span> <span class="ident">ConnectorParams</span> {
+            <span class="ident">connection_string</span>,
+            <span class="ident">preview_features</span>: <span class="self">self</span>.<span class="ident">preview_features</span>,
+            <span class="ident">shadow_database_connection_string</span>,
+        };
+
+        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">connector</span> <span class="op">=</span> <span class="kw">match</span> <span class="kw-2">&amp;</span><span class="ident">connection_info</span> {
+            <span class="ident">ConnectionInfo::Postgres</span>(<span class="kw">_</span>) =&gt; {
+                <span class="kw">if</span> <span class="self">self</span>.<span class="ident">args</span>.<span class="ident">provider</span>() <span class="op">==</span> <span class="string">&quot;cockroachdb&quot;</span> {
+                    <span class="ident">SqlMigrationConnector::new_cockroach</span>()
+                } <span class="kw">else</span> {
+                    <span class="ident">SqlMigrationConnector::new_postgres</span>()
+                }
+            }
+            <span class="ident">ConnectionInfo::Mysql</span>(<span class="kw">_</span>) =&gt; <span class="ident">SqlMigrationConnector::new_mysql</span>(),
+            <span class="ident">ConnectionInfo::Mssql</span>(<span class="kw">_</span>) =&gt; <span class="ident">SqlMigrationConnector::new_mssql</span>(),
+            <span class="ident">ConnectionInfo::Sqlite</span> { .. } =&gt; <span class="ident">SqlMigrationConnector::new_sqlite</span>(),
+            <span class="ident">ConnectionInfo::InMemorySqlite</span> { .. } =&gt; <span class="macro">unreachable!</span>(),
+        };
+        <span class="ident">connector</span>.<span class="ident">set_params</span>(<span class="ident">params</span>).<span class="ident">unwrap</span>();
 
         <span class="ident">EngineTestApi</span> {
             <span class="ident">connector</span>,
             <span class="ident">connection_info</span>,
             <span class="ident">tags</span>: <span class="self">self</span>.<span class="ident">args</span>.<span class="ident">tags</span>(),
-            <span class="ident">rt</span>: <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">rt</span>,
         }
     }
 
@@ -514,7 +542,7 @@
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">datamodel_with_provider</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">schema</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>) -&gt; <span class="ident">String</span> {
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">out</span> <span class="op">=</span> <span class="ident">String::with_capacity</span>(<span class="number">320</span> <span class="op">+</span> <span class="ident">schema</span>.<span class="ident">len</span>());
 
-        <span class="self">self</span>.<span class="ident">write_datasource_block</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">out</span>);
+        <span class="self">self</span>.<span class="ident">write_datasource_block</span>(<span class="kw-2">&amp;mut</span> <span class="ident">out</span>);
         <span class="ident">out</span>.<span class="ident">push_str</span>(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">generator_block</span>());
         <span class="ident">out</span>.<span class="ident">push_str</span>(<span class="ident">schema</span>);
 
@@ -522,7 +550,7 @@
     }
 
     <span class="doccomment">/// Render a valid datasource block, including database URL.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">write_datasource_block</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">out</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="kw">dyn</span> <span class="ident">std::fmt::Write</span>) {
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">write_datasource_block</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">out</span>: <span class="kw-2">&amp;mut</span> <span class="kw">dyn</span> <span class="ident">std::fmt::Write</span>) {
         <span class="macro">write!</span>(<span class="ident">out</span>, <span class="string">&quot;{}&quot;</span>, <span class="self">self</span>.<span class="ident">args</span>.<span class="ident">datasource_block</span>(<span class="self">self</span>.<span class="ident">args</span>.<span class="ident">database_url</span>(), <span class="kw-2">&amp;</span>[])).<span class="ident">unwrap</span>()
     }
 
@@ -557,52 +585,49 @@
 
 <span class="doccomment">/// A wrapper around a migration engine instance optimized for convenience in</span>
 <span class="doccomment">/// writing tests.</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">EngineTestApi</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span> {
+<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">EngineTestApi</span> {
     <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">connector</span>: <span class="ident">SqlMigrationConnector</span>,
     <span class="ident">connection_info</span>: <span class="ident">ConnectionInfo</span>,
     <span class="ident">tags</span>: <span class="ident">BitFlags</span><span class="op">&lt;</span><span class="ident">Tags</span><span class="op">&gt;</span>,
-    <span class="ident">rt</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="ident">tokio::runtime::Runtime</span>,
 }
 
-<span class="kw">impl</span> <span class="ident">EngineTestApi</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span> {
+<span class="kw">impl</span> <span class="ident">EngineTestApi</span> {
     <span class="doccomment">/// Plan an `applyMigrations` command</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">apply_migrations</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span>(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="self">self</span>, <span class="ident">migrations_directory</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="ident">TempDir</span>) -&gt; <span class="ident">ApplyMigrations</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span> {
-        <span class="ident">ApplyMigrations::new_sync</span>(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">connector</span>, <span class="ident">migrations_directory</span>, <span class="self">self</span>.<span class="ident">rt</span>)
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">apply_migrations</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span>(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">migrations_directory</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="ident">TempDir</span>) -&gt; <span class="ident">ApplyMigrations</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span> {
+        <span class="ident">ApplyMigrations::new</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>.<span class="ident">connector</span>, <span class="ident">migrations_directory</span>)
     }
 
     <span class="doccomment">/// Plan a `createMigration` command</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">create_migration</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span>(
-        <span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="self">self</span>,
+        <span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="kw-2">mut</span> <span class="self">self</span>,
         <span class="ident">name</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="ident">str</span>,
         <span class="ident">schema</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="ident">str</span>,
         <span class="ident">migrations_directory</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="ident">TempDir</span>,
     ) -&gt; <span class="ident">CreateMigration</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span> {
-        <span class="ident">CreateMigration::new_sync</span>(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">connector</span>, <span class="ident">name</span>, <span class="ident">schema</span>, <span class="ident">migrations_directory</span>, <span class="self">self</span>.<span class="ident">rt</span>)
+        <span class="ident">CreateMigration::new</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>.<span class="ident">connector</span>, <span class="ident">name</span>, <span class="ident">schema</span>, <span class="ident">migrations_directory</span>)
     }
 
     <span class="doccomment">/// Builder and assertions to call the DiagnoseMigrationHistory command.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">diagnose_migration_history</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span>(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="self">self</span>, <span class="ident">migrations_directory</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="ident">TempDir</span>) -&gt; <span class="ident">DiagnoseMigrationHistory</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span> {
-        <span class="ident">DiagnoseMigrationHistory::new</span>(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">connector</span>, <span class="ident">migrations_directory</span>)
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">diagnose_migration_history</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span>(
+        <span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="kw-2">mut</span> <span class="self">self</span>,
+        <span class="ident">migrations_directory</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="ident">TempDir</span>,
+    ) -&gt; <span class="ident">DiagnoseMigrationHistory</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span> {
+        <span class="ident">DiagnoseMigrationHistory::new</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>.<span class="ident">connector</span>, <span class="ident">migrations_directory</span>)
     }
 
     <span class="doccomment">/// Assert facts about the database schema</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">assert_schema</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">SchemaAssertion</span> {
-        <span class="ident">SchemaAssertion::new</span>(<span class="self">self</span>.<span class="ident">rt</span>.<span class="ident">block_on</span>(<span class="self">self</span>.<span class="ident">connector</span>.<span class="ident">describe_schema</span>()).<span class="ident">unwrap</span>(), <span class="self">self</span>.<span class="ident">tags</span>)
-    }
-
-    <span class="doccomment">/// Expose the GenericApi impl.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">generic_api</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="kw">dyn</span> <span class="ident">GenericApi</span> {
-        <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">connector</span>
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">assert_schema</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>) -&gt; <span class="ident">SchemaAssertion</span> {
+        <span class="ident">SchemaAssertion::new</span>(<span class="ident">tok</span>(<span class="self">self</span>.<span class="ident">connector</span>.<span class="ident">describe_schema</span>()).<span class="ident">unwrap</span>(), <span class="self">self</span>.<span class="ident">tags</span>)
     }
 
     <span class="doccomment">/// Plan a `reset` command</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">reset</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">Reset</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span> {
-        <span class="ident">Reset::new_sync</span>(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">connector</span>, <span class="self">self</span>.<span class="ident">rt</span>)
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">reset</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>) -&gt; <span class="ident">Reset</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span> {
+        <span class="ident">Reset::new</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>.<span class="ident">connector</span>)
     }
 
     <span class="doccomment">/// Plan a `schemaPush` command</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">schema_push</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">dm</span>: <span class="kw">impl</span> <span class="ident">Into</span><span class="op">&lt;</span><span class="ident">String</span><span class="op">&gt;</span>) -&gt; <span class="ident">SchemaPush</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span> {
-        <span class="ident">SchemaPush::new</span>(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">connector</span>, <span class="ident">dm</span>.<span class="ident">into</span>(), <span class="self">self</span>.<span class="ident">rt</span>)
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">schema_push</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">dm</span>: <span class="kw">impl</span> <span class="ident">Into</span><span class="op">&lt;</span><span class="ident">String</span><span class="op">&gt;</span>) -&gt; <span class="ident">SchemaPush</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span> {
+        <span class="ident">SchemaPush::new</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>.<span class="ident">connector</span>, <span class="ident">dm</span>.<span class="ident">into</span>())
     }
 
     <span class="doccomment">/// The schema name of the current connected database.</span>
@@ -612,11 +637,10 @@
 
     <span class="doccomment">/// Execute a raw SQL command and expect it to succeed.</span>
     <span class="attribute">#[<span class="ident">track_caller</span>]</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">raw_cmd</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">cmd</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>) {
-        <span class="self">self</span>.<span class="ident">rt</span>.<span class="ident">block_on</span>(<span class="self">self</span>.<span class="ident">connector</span>.<span class="ident">raw_cmd</span>(<span class="ident">cmd</span>)).<span class="ident">unwrap</span>()
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">raw_cmd</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">cmd</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>) {
+        <span class="ident">tok</span>(<span class="self">self</span>.<span class="ident">connector</span>.<span class="ident">raw_cmd</span>(<span class="ident">cmd</span>)).<span class="ident">unwrap</span>()
     }
 }
 </code></pre></div>
-</section><section id="search" class="content hidden"></section><div id="rustdoc-vars" data-root-path="../../" data-current-crate="migration_engine_tests" data-search-index-js="../../search-index.js" data-search-js="../../search.js"></div>
-    <script src="../../main.js"></script><script src="../../source-script.js"></script><script src="../../source-files.js"></script>
+</section><section id="search" class="content hidden"></section></div></main><div id="rustdoc-vars" data-root-path="../../" data-current-crate="migration_engine_tests" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.61.0 (fe5b13d68 2022-05-18)" ></div>
 </body></html>
