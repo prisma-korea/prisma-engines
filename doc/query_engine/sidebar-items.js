@@ -1,1 +1,1 @@
-initSidebarItems({"enum":[["LogFormat",""]],"mod":[["cli",""],["context",""],["error",""],["logger",""],["opt",""],["server",""]],"type":[["PrismaResult",""]]});
+window.SIDEBAR_ITEMS = {"enum":[["LogFormat",""]],"mod":[["cli",""],["context",""],["error",""],["features",""],["logger",""],["opt",""],["server",""],["tracer",""]],"type":[["PrismaResult",""]]};

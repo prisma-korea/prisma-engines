@@ -1,1 +1,0 @@
-initSidebarItems({"enum":[["MetricFormat",""]],"fn":[["setup",""]],"struct":[["MetricRegistry",""]]});

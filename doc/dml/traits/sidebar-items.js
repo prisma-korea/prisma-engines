@@ -1,1 +1,0 @@
-initSidebarItems({"trait":[["Ignorable",""],["WithDatabaseName",""],["WithName",""]]});
