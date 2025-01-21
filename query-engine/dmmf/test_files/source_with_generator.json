@@ -4,6 +4,7 @@
     {
       "name": "Author",
       "dbName": null,
+      "schema": null,
       "fields": [
         {
           "name": "id",
@@ -13,8 +14,9 @@
           "isUnique": false,
           "isId": true,
           "isReadOnly": false,
-          "type": "Int",
           "hasDefaultValue": false,
+          "type": "Int",
+          "nativeType": null,
           "isGenerated": false,
           "isUpdatedAt": false
         },
@@ -26,17 +28,30 @@
           "isUnique": false,
           "isId": false,
           "isReadOnly": false,
-          "type": "String",
           "hasDefaultValue": false,
+          "type": "String",
+          "nativeType": null,
           "isGenerated": false,
           "isUpdatedAt": false
         }
       ],
-      "isGenerated": false,
       "primaryKey": null,
       "uniqueFields": [],
-      "uniqueIndexes": []
+      "uniqueIndexes": [],
+      "isGenerated": false
     }
   ],
-  "types": []
+  "types": [],
+  "indexes": [
+    {
+      "model": "Author",
+      "type": "id",
+      "isDefinedOnField": true,
+      "fields": [
+        {
+          "name": "id"
+        }
+      ]
+    }
+  ]
 }

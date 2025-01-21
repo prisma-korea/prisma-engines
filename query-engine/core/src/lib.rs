@@ -8,21 +8,28 @@ pub mod executor;
 pub mod protocol;
 pub mod query_document;
 pub mod query_graph_builder;
+pub mod relation_load_strategy;
 pub mod response_ir;
-pub mod telemetry;
 
 pub use self::{
-    error::{CoreError, FieldConversionError},
+    error::{CoreError, ExtendedUserFacingError, FieldConversionError},
     executor::{QueryExecutor, TransactionOptions},
-    interactive_transactions::{ExtendedTransactionUserFacingError, TransactionError, TxId},
+    interactive_transactions::{TransactionError, TxId},
+    query_ast::*,
     query_document::*,
-    telemetry::*,
+    query_graph::*,
+    query_graph_builder::*,
 };
-pub use connector::{error::ConnectorError, Connector};
+
+pub use connector::{
+    error::{ConnectorError, ErrorKind as ConnectorErrorKind},
+    Connector,
+};
 
 mod error;
 mod interactive_transactions;
 mod interpreter;
+mod metrics;
 mod query_ast;
 mod query_graph;
 mod result_ast;
@@ -31,9 +38,6 @@ use self::{
     executor::*,
     interactive_transactions::*,
     interpreter::{Env, ExpressionResult, Expressionista, InterpreterError, QueryInterpreter},
-    query_ast::*,
-    query_graph::*,
-    query_graph_builder::*,
     response_ir::{IrSerializer, ResponseData},
     result_ast::*,
 };

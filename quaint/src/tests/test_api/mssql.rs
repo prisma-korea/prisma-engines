@@ -2,8 +2,8 @@ use super::TestApi;
 use crate::{connector::Queryable, single::Quaint};
 use names::Generator;
 use once_cell::sync::Lazy;
+use quaint_test_setup::Tags;
 use std::env;
-use test_setup::Tags;
 
 pub static CONN_STR: Lazy<String> = Lazy::new(|| env::var("TEST_MSSQL").expect("TEST_MSSQL env var"));
 
@@ -21,12 +21,16 @@ impl<'a> MsSql<'a> {
         let names = Generator::default();
         let conn = Quaint::new(&CONN_STR).await?;
 
+        // snapshot isolation enables us to test isolation levels easily
+        conn.raw_cmd("ALTER DATABASE tempdb SET ALLOW_SNAPSHOT_ISOLATION ON")
+            .await?;
+
         Ok(Self { names, conn })
     }
 }
 
 #[async_trait::async_trait]
-impl<'a> TestApi for MsSql<'a> {
+impl TestApi for MsSql<'_> {
     fn system(&self) -> &'static str {
         "mssql"
     }
@@ -76,6 +80,10 @@ impl<'a> TestApi for MsSql<'a> {
         Quaint::new(&CONN_STR).await
     }
 
+    fn create_pool(&self) -> crate::Result<crate::pooled::Quaint> {
+        Ok(crate::pooled::Quaint::builder(&CONN_STR)?.build())
+    }
+
     fn render_create_table(&mut self, table_name: &str, columns: &str) -> (String, String) {
         let table_name = format!("##{table_name}");
         let create = format!(
@@ -109,7 +117,7 @@ impl<'a> TestApi for MsSql<'a> {
         self.names.next().unwrap().replace('-', "")
     }
 
-    fn connector_tag(&self) -> test_setup::Tags {
+    fn connector_tag(&self) -> quaint_test_setup::Tags {
         Tags::MSSQL
     }
 }

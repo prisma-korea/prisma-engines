@@ -23,6 +23,7 @@
     {
       "name": "User",
       "dbName": "user",
+      "schema": null,
       "fields": [
         {
           "name": "id",
@@ -32,8 +33,9 @@
           "isUnique": false,
           "isId": true,
           "isReadOnly": false,
-          "type": "Int",
           "hasDefaultValue": false,
+          "type": "Int",
+          "nativeType": null,
           "isGenerated": false,
           "isUpdatedAt": false
         },
@@ -45,8 +47,9 @@
           "isUnique": false,
           "isId": false,
           "isReadOnly": false,
-          "type": "DateTime",
           "hasDefaultValue": false,
+          "type": "DateTime",
+          "nativeType": null,
           "isGenerated": false,
           "isUpdatedAt": false
         },
@@ -58,8 +61,9 @@
           "isUnique": true,
           "isId": false,
           "isReadOnly": false,
-          "type": "String",
           "hasDefaultValue": false,
+          "type": "String",
+          "nativeType": null,
           "isGenerated": false,
           "isUpdatedAt": false
         },
@@ -72,8 +76,9 @@
           "isUnique": false,
           "isId": false,
           "isReadOnly": false,
-          "type": "String",
           "hasDefaultValue": false,
+          "type": "String",
+          "nativeType": null,
           "isGenerated": false,
           "isUpdatedAt": false
         },
@@ -85,8 +90,9 @@
           "isUnique": false,
           "isId": false,
           "isReadOnly": false,
-          "type": "Post",
           "hasDefaultValue": false,
+          "type": "Post",
+          "nativeType": null,
           "relationName": "author",
           "relationFromFields": [],
           "relationToFields": [],
@@ -101,8 +107,9 @@
           "isUnique": false,
           "isId": false,
           "isReadOnly": false,
-          "type": "Profile",
           "hasDefaultValue": false,
+          "type": "Profile",
+          "nativeType": null,
           "relationName": "ProfileToUser",
           "relationFromFields": [],
           "relationToFields": [],
@@ -110,14 +117,15 @@
           "isUpdatedAt": false
         }
       ],
-      "isGenerated": false,
       "primaryKey": null,
       "uniqueFields": [],
-      "uniqueIndexes": []
+      "uniqueIndexes": [],
+      "isGenerated": false
     },
     {
       "name": "Profile",
       "dbName": "profile",
+      "schema": null,
       "fields": [
         {
           "name": "id",
@@ -127,8 +135,9 @@
           "isUnique": false,
           "isId": true,
           "isReadOnly": false,
-          "type": "Int",
           "hasDefaultValue": false,
+          "type": "Int",
+          "nativeType": null,
           "isGenerated": false,
           "isUpdatedAt": false
         },
@@ -140,8 +149,9 @@
           "isUnique": true,
           "isId": false,
           "isReadOnly": true,
-          "type": "Int",
           "hasDefaultValue": false,
+          "type": "Int",
+          "nativeType": null,
           "isGenerated": false,
           "isUpdatedAt": false
         },
@@ -153,8 +163,9 @@
           "isUnique": false,
           "isId": false,
           "isReadOnly": false,
-          "type": "User",
           "hasDefaultValue": false,
+          "type": "User",
+          "nativeType": null,
           "relationName": "ProfileToUser",
           "relationFromFields": [
             "userId"
@@ -173,20 +184,22 @@
           "isUnique": false,
           "isId": false,
           "isReadOnly": false,
-          "type": "String",
           "hasDefaultValue": false,
+          "type": "String",
+          "nativeType": null,
           "isGenerated": false,
           "isUpdatedAt": false
         }
       ],
-      "isGenerated": false,
       "primaryKey": null,
       "uniqueFields": [],
-      "uniqueIndexes": []
+      "uniqueIndexes": [],
+      "isGenerated": false
     },
     {
       "name": "Post",
       "dbName": "post",
+      "schema": null,
       "fields": [
         {
           "name": "id",
@@ -196,8 +209,9 @@
           "isUnique": false,
           "isId": false,
           "isReadOnly": false,
-          "type": "Int",
           "hasDefaultValue": false,
+          "type": "Int",
+          "nativeType": null,
           "isGenerated": false,
           "isUpdatedAt": false
         },
@@ -209,8 +223,9 @@
           "isUnique": false,
           "isId": false,
           "isReadOnly": false,
-          "type": "DateTime",
           "hasDefaultValue": false,
+          "type": "DateTime",
+          "nativeType": null,
           "isGenerated": false,
           "isUpdatedAt": false
         },
@@ -222,8 +237,9 @@
           "isUnique": false,
           "isId": false,
           "isReadOnly": false,
-          "type": "DateTime",
           "hasDefaultValue": false,
+          "type": "DateTime",
+          "nativeType": null,
           "isGenerated": false,
           "isUpdatedAt": false
         },
@@ -235,8 +251,9 @@
           "isUnique": false,
           "isId": false,
           "isReadOnly": false,
-          "type": "String",
           "hasDefaultValue": true,
+          "type": "String",
+          "nativeType": null,
           "default": "Default-Title",
           "isGenerated": false,
           "isUpdatedAt": false
@@ -249,8 +266,9 @@
           "isUnique": false,
           "isId": false,
           "isReadOnly": false,
-          "type": "Boolean",
           "hasDefaultValue": true,
+          "type": "Boolean",
+          "nativeType": null,
           "default": false,
           "isGenerated": false,
           "isUpdatedAt": false
@@ -263,8 +281,9 @@
           "isUnique": false,
           "isId": false,
           "isReadOnly": false,
-          "type": "Boolean",
           "hasDefaultValue": true,
+          "type": "Boolean",
+          "nativeType": null,
           "default": false,
           "isGenerated": false,
           "isUpdatedAt": false
@@ -277,8 +296,9 @@
           "isUnique": false,
           "isId": false,
           "isReadOnly": true,
-          "type": "Int",
           "hasDefaultValue": false,
+          "type": "Int",
+          "nativeType": null,
           "isGenerated": false,
           "isUpdatedAt": false
         },
@@ -290,8 +310,9 @@
           "isUnique": false,
           "isId": false,
           "isReadOnly": false,
-          "type": "User",
           "hasDefaultValue": false,
+          "type": "User",
+          "nativeType": null,
           "relationName": "author",
           "relationFromFields": [
             "authorId"
@@ -310,8 +331,9 @@
           "isUnique": false,
           "isId": false,
           "isReadOnly": false,
-          "type": "PostToCategory",
           "hasDefaultValue": false,
+          "type": "PostToCategory",
+          "nativeType": null,
           "relationName": "PostToPostToCategory",
           "relationFromFields": [],
           "relationToFields": [],
@@ -319,7 +341,6 @@
           "isUpdatedAt": false
         }
       ],
-      "isGenerated": false,
       "primaryKey": {
         "name": null,
         "fields": [
@@ -328,11 +349,13 @@
         ]
       },
       "uniqueFields": [],
-      "uniqueIndexes": []
+      "uniqueIndexes": [],
+      "isGenerated": false
     },
     {
       "name": "Category",
       "dbName": "category",
+      "schema": null,
       "fields": [
         {
           "name": "id",
@@ -342,8 +365,9 @@
           "isUnique": false,
           "isId": true,
           "isReadOnly": false,
-          "type": "Int",
           "hasDefaultValue": false,
+          "type": "Int",
+          "nativeType": null,
           "isGenerated": false,
           "isUpdatedAt": false
         },
@@ -355,8 +379,9 @@
           "isUnique": false,
           "isId": false,
           "isReadOnly": false,
-          "type": "String",
           "hasDefaultValue": false,
+          "type": "String",
+          "nativeType": null,
           "isGenerated": false,
           "isUpdatedAt": false
         },
@@ -368,8 +393,9 @@
           "isUnique": false,
           "isId": false,
           "isReadOnly": false,
-          "type": "PostToCategory",
           "hasDefaultValue": false,
+          "type": "PostToCategory",
+          "nativeType": null,
           "relationName": "CategoryToPostToCategory",
           "relationFromFields": [],
           "relationToFields": [],
@@ -384,20 +410,22 @@
           "isUnique": false,
           "isId": false,
           "isReadOnly": false,
-          "type": "CategoryEnum",
           "hasDefaultValue": false,
+          "type": "CategoryEnum",
+          "nativeType": null,
           "isGenerated": false,
           "isUpdatedAt": false
         }
       ],
-      "isGenerated": false,
       "primaryKey": null,
       "uniqueFields": [],
-      "uniqueIndexes": []
+      "uniqueIndexes": [],
+      "isGenerated": false
     },
     {
       "name": "PostToCategory",
       "dbName": "post_to_category",
+      "schema": null,
       "fields": [
         {
           "name": "id",
@@ -407,8 +435,9 @@
           "isUnique": false,
           "isId": true,
           "isReadOnly": false,
-          "type": "Int",
           "hasDefaultValue": false,
+          "type": "Int",
+          "nativeType": null,
           "isGenerated": false,
           "isUpdatedAt": false
         },
@@ -420,8 +449,9 @@
           "isUnique": false,
           "isId": false,
           "isReadOnly": true,
-          "type": "String",
           "hasDefaultValue": false,
+          "type": "String",
+          "nativeType": null,
           "isGenerated": false,
           "isUpdatedAt": false
         },
@@ -433,8 +463,9 @@
           "isUnique": false,
           "isId": false,
           "isReadOnly": true,
-          "type": "DateTime",
           "hasDefaultValue": false,
+          "type": "DateTime",
+          "nativeType": null,
           "isGenerated": false,
           "isUpdatedAt": false
         },
@@ -446,8 +477,9 @@
           "isUnique": false,
           "isId": false,
           "isReadOnly": true,
-          "type": "Int",
           "hasDefaultValue": false,
+          "type": "Int",
+          "nativeType": null,
           "isGenerated": false,
           "isUpdatedAt": false
         },
@@ -459,8 +491,9 @@
           "isUnique": false,
           "isId": false,
           "isReadOnly": false,
-          "type": "Post",
           "hasDefaultValue": false,
+          "type": "Post",
+          "nativeType": null,
           "relationName": "PostToPostToCategory",
           "relationFromFields": [
             "postTitle",
@@ -481,8 +514,9 @@
           "isUnique": false,
           "isId": false,
           "isReadOnly": false,
-          "type": "Category",
           "hasDefaultValue": false,
+          "type": "Category",
+          "nativeType": null,
           "relationName": "CategoryToPostToCategory",
           "relationFromFields": [
             "categoryId"
@@ -494,7 +528,6 @@
           "isUpdatedAt": false
         }
       ],
-      "isGenerated": false,
       "primaryKey": null,
       "uniqueFields": [
         [
@@ -510,11 +543,13 @@
             "categoryId"
           ]
         }
-      ]
+      ],
+      "isGenerated": false
     },
     {
       "name": "A",
       "dbName": null,
+      "schema": null,
       "fields": [
         {
           "name": "id",
@@ -524,8 +559,9 @@
           "isUnique": false,
           "isId": true,
           "isReadOnly": false,
-          "type": "Int",
           "hasDefaultValue": false,
+          "type": "Int",
+          "nativeType": null,
           "isGenerated": false,
           "isUpdatedAt": false
         },
@@ -537,8 +573,9 @@
           "isUnique": true,
           "isId": false,
           "isReadOnly": true,
-          "type": "Int",
           "hasDefaultValue": false,
+          "type": "Int",
+          "nativeType": null,
           "isGenerated": false,
           "isUpdatedAt": false
         },
@@ -550,8 +587,9 @@
           "isUnique": false,
           "isId": false,
           "isReadOnly": false,
-          "type": "B",
           "hasDefaultValue": false,
+          "type": "B",
+          "nativeType": null,
           "relationName": "AToB",
           "relationFromFields": [
             "bId"
@@ -563,14 +601,15 @@
           "isUpdatedAt": false
         }
       ],
-      "isGenerated": false,
       "primaryKey": null,
       "uniqueFields": [],
-      "uniqueIndexes": []
+      "uniqueIndexes": [],
+      "isGenerated": false
     },
     {
       "name": "B",
       "dbName": null,
+      "schema": null,
       "fields": [
         {
           "name": "id",
@@ -580,8 +619,9 @@
           "isUnique": false,
           "isId": true,
           "isReadOnly": false,
-          "type": "Int",
           "hasDefaultValue": false,
+          "type": "Int",
+          "nativeType": null,
           "isGenerated": false,
           "isUpdatedAt": false
         },
@@ -593,8 +633,9 @@
           "isUnique": false,
           "isId": false,
           "isReadOnly": false,
-          "type": "A",
           "hasDefaultValue": false,
+          "type": "A",
+          "nativeType": null,
           "relationName": "AToB",
           "relationFromFields": [],
           "relationToFields": [],
@@ -602,14 +643,15 @@
           "isUpdatedAt": false
         }
       ],
-      "isGenerated": false,
       "primaryKey": null,
       "uniqueFields": [],
-      "uniqueIndexes": []
+      "uniqueIndexes": [],
+      "isGenerated": false
     },
     {
       "name": "NamedCompounds",
       "dbName": null,
+      "schema": null,
       "fields": [
         {
           "name": "a",
@@ -619,8 +661,9 @@
           "isUnique": false,
           "isId": false,
           "isReadOnly": false,
-          "type": "Int",
           "hasDefaultValue": false,
+          "type": "Int",
+          "nativeType": null,
           "isGenerated": false,
           "isUpdatedAt": false
         },
@@ -632,8 +675,9 @@
           "isUnique": false,
           "isId": false,
           "isReadOnly": false,
-          "type": "Int",
           "hasDefaultValue": false,
+          "type": "Int",
+          "nativeType": null,
           "isGenerated": false,
           "isUpdatedAt": false
         },
@@ -645,8 +689,9 @@
           "isUnique": false,
           "isId": false,
           "isReadOnly": false,
-          "type": "Int",
           "hasDefaultValue": false,
+          "type": "Int",
+          "nativeType": null,
           "isGenerated": false,
           "isUpdatedAt": false
         },
@@ -658,13 +703,13 @@
           "isUnique": false,
           "isId": false,
           "isReadOnly": false,
-          "type": "Int",
           "hasDefaultValue": false,
+          "type": "Int",
+          "nativeType": null,
           "isGenerated": false,
           "isUpdatedAt": false
         }
       ],
-      "isGenerated": false,
       "primaryKey": {
         "name": "MyPrimary",
         "fields": [
@@ -686,11 +731,13 @@
             "d"
           ]
         }
-      ]
+      ],
+      "isGenerated": false
     },
     {
       "name": "MappedSingles",
       "dbName": null,
+      "schema": null,
       "fields": [
         {
           "name": "a",
@@ -700,8 +747,9 @@
           "isUnique": false,
           "isId": true,
           "isReadOnly": false,
-          "type": "Int",
           "hasDefaultValue": false,
+          "type": "Int",
+          "nativeType": null,
           "isGenerated": false,
           "isUpdatedAt": false
         },
@@ -713,17 +761,188 @@
           "isUnique": true,
           "isId": false,
           "isReadOnly": false,
-          "type": "Int",
           "hasDefaultValue": false,
+          "type": "Int",
+          "nativeType": null,
           "isGenerated": false,
           "isUpdatedAt": false
         }
       ],
-      "isGenerated": false,
       "primaryKey": null,
       "uniqueFields": [],
-      "uniqueIndexes": []
+      "uniqueIndexes": [],
+      "isGenerated": false
     }
   ],
-  "types": []
+  "types": [],
+  "indexes": [
+    {
+      "model": "User",
+      "type": "id",
+      "isDefinedOnField": true,
+      "fields": [
+        {
+          "name": "id"
+        }
+      ]
+    },
+    {
+      "model": "User",
+      "type": "unique",
+      "isDefinedOnField": true,
+      "fields": [
+        {
+          "name": "email"
+        }
+      ]
+    },
+    {
+      "model": "Profile",
+      "type": "id",
+      "isDefinedOnField": true,
+      "fields": [
+        {
+          "name": "id"
+        }
+      ]
+    },
+    {
+      "model": "Profile",
+      "type": "unique",
+      "isDefinedOnField": true,
+      "fields": [
+        {
+          "name": "userId"
+        }
+      ]
+    },
+    {
+      "model": "Post",
+      "type": "id",
+      "isDefinedOnField": false,
+      "fields": [
+        {
+          "name": "title"
+        },
+        {
+          "name": "createdAt"
+        }
+      ]
+    },
+    {
+      "model": "Category",
+      "type": "id",
+      "isDefinedOnField": true,
+      "fields": [
+        {
+          "name": "id"
+        }
+      ]
+    },
+    {
+      "model": "PostToCategory",
+      "type": "id",
+      "isDefinedOnField": true,
+      "fields": [
+        {
+          "name": "id"
+        }
+      ]
+    },
+    {
+      "model": "PostToCategory",
+      "type": "unique",
+      "isDefinedOnField": false,
+      "fields": [
+        {
+          "name": "postTitle"
+        },
+        {
+          "name": "categoryId"
+        }
+      ]
+    },
+    {
+      "model": "A",
+      "type": "id",
+      "isDefinedOnField": true,
+      "fields": [
+        {
+          "name": "id"
+        }
+      ]
+    },
+    {
+      "model": "A",
+      "type": "unique",
+      "isDefinedOnField": true,
+      "fields": [
+        {
+          "name": "bId"
+        }
+      ]
+    },
+    {
+      "model": "B",
+      "type": "id",
+      "isDefinedOnField": true,
+      "fields": [
+        {
+          "name": "id"
+        }
+      ]
+    },
+    {
+      "model": "NamedCompounds",
+      "type": "id",
+      "isDefinedOnField": false,
+      "name": "MyPrimary",
+      "dbName": "DbPrimary",
+      "fields": [
+        {
+          "name": "a"
+        },
+        {
+          "name": "b"
+        }
+      ]
+    },
+    {
+      "model": "NamedCompounds",
+      "type": "unique",
+      "isDefinedOnField": false,
+      "name": "MyUnique",
+      "dbName": "DbUnique",
+      "fields": [
+        {
+          "name": "c"
+        },
+        {
+          "name": "d"
+        }
+      ]
+    },
+    {
+      "model": "MappedSingles",
+      "type": "id",
+      "isDefinedOnField": true,
+      "dbName": "Primary",
+      "fields": [
+        {
+          "name": "a"
+        }
+      ]
+    },
+    {
+      "model": "MappedSingles",
+      "type": "unique",
+      "isDefinedOnField": true,
+      "dbName": "Unique",
+      "fields": [
+        {
+          "name": "b"
+        }
+      ]
+    }
+  ]
 }

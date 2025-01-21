@@ -9,41 +9,59 @@ crate-type = ["cdylib"]
 name = "query_engine"
 
 [features]
-default = ["nodejs-drivers"]
+default = ["driver-adapters"]
 vendored-openssl = ["sql-connector/vendored-openssl"]
-nodejs-drivers = ["sql-connector/nodejs-drivers", "request-handlers/nodejs-drivers"]
+driver-adapters = [
+    "request-handlers/driver-adapters",
+    "sql-connector/driver-adapters",
+]
+
+# napi-rs generated code has some cfg attributes that check for these features
+# so we declare them here to silence the warnings. They should not be enabled.
+noop = []
+used_linker = []
+
+[lints]
+workspace = true
 
 [dependencies]
 anyhow = "1"
-async-trait = "0.1"
-query-core = { path = "../core" }
-request-handlers = { path = "../request-handlers" }
+async-trait.workspace = true
+query-core = { path = "../core", features = ["metrics"] }
+request-handlers = { path = "../request-handlers", features = ["all"] }
 query-connector = { path = "../connectors/query-connector" }
+query-engine-common = { path = "../../libs/query-engine-common" }
+query-compiler = { path = "../../query-compiler/query-compiler" }
 user-facing-errors = { path = "../../libs/user-facing-errors" }
-psl.workspace = true
-sql-connector = { path = "../connectors/sql-query-connector", package = "sql-query-connector" }
-prisma-models = { path = "../prisma-models" }
-nodejs-drivers = { path = "../nodejs-drivers" }
-
-napi = { version = "2.12.4", default-features = false, features = ["napi8", "tokio_rt", "serde-json"] }
-napi-derive = "2.12.3"
+telemetry = { path = "../../libs/telemetry" }
+psl = { workspace = true, features = ["all"] }
+sql-connector = { path = "../connectors/sql-query-connector", package = "sql-query-connector", features = [
+    "all-native",
+] }
+query-structure = { path = "../query-structure" }
+driver-adapters = { path = "../../libs/driver-adapters", features = [
+    "postgresql",
+    "sqlite",
+    "mysql",
+] }
+napi.workspace = true
+napi-derive.workspace = true
 
 thiserror = "1"
-connection-string.workspace = true 
-url = "2"
+connection-string.workspace = true
+url.workspace = true
 serde_json.workspace = true
 serde.workspace = true
 
-tracing = "0.1"
+tracing.workspace = true
 tracing-subscriber = { version = "0.3" }
-tracing-futures = "0.2"
-tracing-opentelemetry = "0.17.3"
-opentelemetry = { version = "0.17"}
+tracing-futures.workspace = true
 
 quaint.workspace = true
 tokio.workspace = true
-futures = "0.3"
-query-engine-metrics = {path = "../metrics"}
+futures.workspace = true
+prisma-metrics.path = "../../libs/metrics"
 
 [build-dependencies]
 napi-build = "1"
+build-utils.path = "../../libs/build-utils"

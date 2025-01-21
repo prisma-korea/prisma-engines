@@ -1,10 +1,6 @@
 use either::Either;
 use prisma_value::PrismaValue;
-use psl::{
-    builtin_connectors::{MySqlType, PostgresType},
-    datamodel_connector::constraint_names::ConstraintNames,
-    parser_database::walkers,
-};
+use psl::{datamodel_connector::constraint_names::ConstraintNames, parser_database::walkers};
 use sql::postgres::PostgresSchemaExt;
 use sql_schema_describer as sql;
 use std::{borrow::Cow, fmt};
@@ -18,11 +14,10 @@ pub(crate) enum DefaultKind<'a> {
     Sequence(&'a sql::postgres::Sequence),
     DbGenerated(Option<&'a str>),
     Autoincrement,
-    Uuid,
-    Cuid,
+    Uuid(Option<u8>),
+    Cuid(Option<u8>),
+    Ulid,
     Nanoid(Option<u8>),
-    Prisma1Uuid,
-    Prisma1Cuid,
     Now,
     String(&'a str),
     StringList(Vec<&'a str>),
@@ -122,38 +117,33 @@ impl<'a> DefaultValuePair<'a> {
             },
 
             (None, sql::ColumnTypeFamily::String | sql::ColumnTypeFamily::Uuid) => match self.previous {
-                Some(previous) if previous.is_cuid() => Some(DefaultKind::Cuid),
-                Some(previous) if previous.is_uuid() => Some(DefaultKind::Uuid),
+                Some(previous) if previous.is_ulid() => Some(DefaultKind::Ulid),
+                Some(previous) if previous.is_cuid() => {
+                    let version = previous.value().as_function().and_then(|(_, args, _)| {
+                        args.arguments
+                            .first()
+                            .map(|arg| arg.value.as_numeric_value().unwrap().0.parse::<u8>().unwrap())
+                    });
+
+                    Some(DefaultKind::Cuid(version))
+                }
+                Some(previous) if previous.is_uuid() => {
+                    let version = previous.value().as_function().and_then(|(_, args, _)| {
+                        args.arguments
+                            .first()
+                            .map(|arg| arg.value.as_numeric_value().unwrap().0.parse::<u8>().unwrap())
+                    });
+
+                    Some(DefaultKind::Uuid(version))
+                }
                 Some(previous) if previous.is_nanoid() => {
                     let length = previous.value().as_function().and_then(|(_, args, _)| {
                         args.arguments
-                            .get(0)
+                            .first()
                             .map(|arg| arg.value.as_numeric_value().unwrap().0.parse::<u8>().unwrap())
                     });
 
                     Some(DefaultKind::Nanoid(length))
-                }
-                None if self.context.version.is_prisma1() && self.context.sql_family.is_postgres() => {
-                    let native_type: &PostgresType = self.next.column_type().native_type.as_ref()?.downcast_ref();
-
-                    if native_type == &PostgresType::VarChar(Some(25)) {
-                        Some(DefaultKind::Prisma1Cuid)
-                    } else if native_type == &PostgresType::VarChar(Some(36)) {
-                        Some(DefaultKind::Prisma1Uuid)
-                    } else {
-                        None
-                    }
-                }
-                None if self.context.version.is_prisma1() && self.context.sql_family.is_mysql() => {
-                    let native_type: &MySqlType = self.next.column_type().native_type.as_ref()?.downcast_ref();
-
-                    if native_type == &MySqlType::Char(25) {
-                        Some(DefaultKind::Prisma1Cuid)
-                    } else if native_type == &MySqlType::Char(36) {
-                        Some(DefaultKind::Prisma1Uuid)
-                    } else {
-                        None
-                    }
                 }
                 _ => None,
             },

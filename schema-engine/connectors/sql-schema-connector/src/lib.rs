@@ -9,6 +9,7 @@ mod flavour;
 mod introspection;
 mod migration_pair;
 mod sql_destructive_change_checker;
+mod sql_doc_parser;
 mod sql_migration;
 mod sql_migration_persistence;
 mod sql_renderer;
@@ -17,13 +18,15 @@ mod sql_schema_differ;
 
 use database_schema::SqlDatabaseSchema;
 use enumflags2::BitFlags;
-use flavour::{MssqlFlavour, MysqlFlavour, PostgresFlavour, SqlFlavour, SqliteFlavour};
+use flavour::SqlFlavour;
 use migration_pair::MigrationPair;
-use psl::ValidatedSchema;
+use psl::{datamodel_connector::NativeTypeInstance, parser_database::ScalarType, ValidatedSchema};
+use quaint::connector::DescribedQuery;
 use schema_connector::{migrations_directory::MigrationDirectory, *};
+use sql_doc_parser::{parse_sql_doc, sanitize_sql};
 use sql_migration::{DropUserDefinedType, DropView, SqlMigration, SqlMigrationStep};
 use sql_schema_describer as sql;
-use std::sync::Arc;
+use std::{future, sync::Arc};
 
 const MIGRATIONS_TABLE_NAME: &str = "_prisma_migrations";
 
@@ -34,42 +37,77 @@ pub struct SqlSchemaConnector {
 }
 
 impl SqlSchemaConnector {
+    /// Initialize an external PostgreSQL migration connector.
+    #[cfg(all(feature = "postgresql", not(feature = "postgresql-native")))]
+    pub fn new_postgres_external(adapter: Arc<dyn quaint::connector::ExternalConnector>) -> Self {
+        SqlSchemaConnector {
+            flavour: Box::new(flavour::PostgresFlavour::new_external(adapter)),
+            host: Arc::new(EmptyHost),
+        }
+    }
+
+    /// Initialize an external SQLite migration connector.
+    #[cfg(all(feature = "sqlite", not(feature = "sqlite-native")))]
+    pub fn new_sqlite_external(adapter: Arc<dyn quaint::connector::ExternalConnector>) -> Self {
+        SqlSchemaConnector {
+            flavour: Box::new(flavour::SqliteFlavour::new_external(adapter)),
+            host: Arc::new(EmptyHost),
+        }
+    }
+
     /// Initialize a PostgreSQL migration connector.
+    #[cfg(feature = "postgresql-native")]
     pub fn new_postgres() -> Self {
         SqlSchemaConnector {
-            flavour: Box::<PostgresFlavour>::default(),
+            flavour: Box::new(flavour::PostgresFlavour::new_postgres()),
             host: Arc::new(EmptyHost),
         }
     }
 
     /// Initialize a CockroachDb migration connector.
+    #[cfg(feature = "cockroachdb-native")]
     pub fn new_cockroach() -> Self {
         SqlSchemaConnector {
-            flavour: Box::new(PostgresFlavour::new_cockroach()),
+            flavour: Box::new(flavour::PostgresFlavour::new_cockroach()),
+            host: Arc::new(EmptyHost),
+        }
+    }
+
+    /// Initialize a PostgreSQL-like schema connector.
+    ///
+    /// Use [`Self::new_postgres()`] or [`Self::new_cockroach()`] instead when the provider is
+    /// explicitly specified by user or already known otherwise.
+    #[cfg(any(feature = "postgresql-native", feature = "cockroachdb-native"))]
+    pub fn new_postgres_like() -> Self {
+        SqlSchemaConnector {
+            flavour: Box::<flavour::PostgresFlavour>::default(),
             host: Arc::new(EmptyHost),
         }
     }
 
     /// Initialize a SQLite migration connector.
+    #[cfg(feature = "sqlite-native")]
     pub fn new_sqlite() -> Self {
         SqlSchemaConnector {
-            flavour: Box::<SqliteFlavour>::default(),
+            flavour: Box::<flavour::SqliteFlavour>::default(),
             host: Arc::new(EmptyHost),
         }
     }
 
     /// Initialize a MySQL migration connector.
+    #[cfg(feature = "mysql-native")]
     pub fn new_mysql() -> Self {
         SqlSchemaConnector {
-            flavour: Box::<MysqlFlavour>::default(),
+            flavour: Box::<flavour::MysqlFlavour>::default(),
             host: Arc::new(EmptyHost),
         }
     }
 
     /// Initialize a MSSQL migration connector.
+    #[cfg(feature = "mssql-native")]
     pub fn new_mssql() -> Self {
         SqlSchemaConnector {
-            flavour: Box::<MssqlFlavour>::default(),
+            flavour: Box::<flavour::MssqlFlavour>::default(),
             host: Arc::new(EmptyHost),
         }
     }
@@ -120,8 +158,9 @@ impl SqlSchemaConnector {
         namespaces: Option<Namespaces>,
     ) -> ConnectorResult<SqlDatabaseSchema> {
         match target {
-            DiffTarget::Datamodel(schema) => {
-                let schema = psl::parse_schema(schema).map_err(ConnectorError::new_schema_parser_error)?;
+            DiffTarget::Datamodel(sources) => {
+                let schema = psl::parse_schema_multi(&sources).map_err(ConnectorError::new_schema_parser_error)?;
+
                 self.flavour.check_schema_features(&schema)?;
                 Ok(sql_schema_calculator::calculate_sql_schema(
                     &schema,
@@ -137,9 +176,17 @@ impl SqlSchemaConnector {
             DiffTarget::Empty => Ok(self.flavour.empty_database_schema().into()),
         }
     }
+
+    /// Returns the native types that can be used to represent the given scalar type.
+    pub fn scalar_type_for_native_type(&self, native_type: &NativeTypeInstance) -> ScalarType {
+        self.flavour
+            .datamodel_connector()
+            .scalar_type_for_native_type(native_type)
+    }
 }
 
 impl SchemaConnector for SqlSchemaConnector {
+    // TODO: this only seems to be used in `sql-migration-tests`.
     fn set_host(&mut self, host: Arc<dyn schema_connector::ConnectorHost>) {
         self.host = host;
     }
@@ -161,6 +208,19 @@ impl SchemaConnector for SqlSchemaConnector {
     }
 
     fn acquire_lock(&mut self) -> BoxFuture<'_, ConnectorResult<()>> {
+        // If the env is set and non empty or set to `0`, we disable the lock.
+        // TODO: avoid using `std::env::var` in Wasm.
+        let disable_lock: bool = std::env::var("PRISMA_SCHEMA_DISABLE_ADVISORY_LOCK")
+            .ok()
+            .map(|value| !matches!(value.as_str(), "0" | ""))
+            .unwrap_or(false);
+
+        if disable_lock {
+            tracing::info!(
+                "PRISMA_SCHEMA_DISABLE_ADVISORY_LOCK environnement variable is set. Advisory lock is disabled."
+            );
+            return Box::pin(future::ready(Ok(())));
+        }
         Box::pin(self.flavour.acquire_lock())
     }
 
@@ -180,6 +240,7 @@ impl SchemaConnector for SqlSchemaConnector {
         self.flavour.ensure_connection_validity()
     }
 
+    // TODO: this only seems to be used in `sql-migration-tests`.
     fn host(&self) -> &Arc<dyn ConnectorHost> {
         &self.host
     }
@@ -321,6 +382,55 @@ impl SchemaConnector for SqlSchemaConnector {
                 .map(|nw| String::from(nw.name()))
                 .collect::<Vec<String>>(),
         )
+    }
+
+    fn introspect_sql(
+        &mut self,
+        input: IntrospectSqlQueryInput,
+    ) -> BoxFuture<'_, ConnectorResult<IntrospectSqlQueryOutput>> {
+        Box::pin(async move {
+            let sanitized_sql = sanitize_sql(&input.source);
+            let DescribedQuery {
+                parameters,
+                columns,
+                enum_names,
+            } = self.flavour.describe_query(&sanitized_sql).await?;
+            let enum_names = enum_names.unwrap_or_default();
+            let sql_source = input.source.clone();
+            let parsed_doc = parse_sql_doc(&sql_source, enum_names.as_slice())?;
+
+            let parameters = parameters
+                .into_iter()
+                .zip(1..)
+                .map(|(param, idx)| {
+                    let parsed_param = parsed_doc
+                        .get_param_at(idx)
+                        .or_else(|| parsed_doc.get_param_by_alias(&param.name));
+
+                    IntrospectSqlQueryParameterOutput {
+                        typ: parsed_param
+                            .and_then(|p| p.typ())
+                            .unwrap_or_else(|| param.typ.to_string()),
+                        name: parsed_param
+                            .and_then(|p| p.alias())
+                            .map(ToOwned::to_owned)
+                            .unwrap_or_else(|| param.name),
+                        documentation: parsed_param.and_then(|p| p.documentation()).map(ToOwned::to_owned),
+                        // Params are required by default unless overridden by sql doc.
+                        nullable: parsed_param.and_then(|p| p.nullable()).unwrap_or(false),
+                    }
+                })
+                .collect();
+            let columns = columns.into_iter().map(IntrospectSqlQueryColumnOutput::from).collect();
+
+            Ok(IntrospectSqlQueryOutput {
+                name: input.name,
+                source: sanitized_sql,
+                documentation: parsed_doc.description().map(ToOwned::to_owned),
+                parameters,
+                result_columns: columns,
+            })
+        })
     }
 }
 

@@ -2,14 +2,28 @@
 //! in order to avoid cluttering the connector with conditionals. This is a private implementation
 //! detail of the SQL connector.
 
+#[cfg(feature = "mssql")]
 mod mssql;
+
+#[cfg(feature = "mysql")]
 mod mysql;
+
+#[cfg(any(feature = "postgresql", feature = "cockroachdb"))]
 mod postgres;
+
+#[cfg(feature = "sqlite")]
 mod sqlite;
 
+#[cfg(feature = "mssql")]
 pub(crate) use mssql::MssqlFlavour;
+
+#[cfg(feature = "mysql")]
 pub(crate) use mysql::MysqlFlavour;
+
+#[cfg(any(feature = "postgresql", feature = "cockroachdb"))]
 pub(crate) use postgres::PostgresFlavour;
+
+#[cfg(feature = "sqlite")]
 pub(crate) use sqlite::SqliteFlavour;
 
 use crate::{
@@ -161,7 +175,7 @@ pub(crate) trait SqlFlavour:
         SqlSchema::default()
     }
 
-    /// Check a connection to make sure it is usable by the migration engine.
+    /// Check a connection to make sure it is usable by the schema engine.
     /// This can include some set up on the database, like ensuring that the
     /// schema we connect to exists.
     fn ensure_connection_validity(&mut self) -> BoxFuture<'_, ConnectorResult<()>>;
@@ -174,6 +188,11 @@ pub(crate) trait SqlFlavour:
     ) -> BoxFuture<'a, ConnectorResult<SqlSchema>> {
         self.describe_schema(namespaces)
     }
+
+    fn describe_query<'a>(
+        &'a mut self,
+        sql: &'a str,
+    ) -> BoxFuture<'a, ConnectorResult<quaint::connector::DescribedQuery>>;
 
     fn load_migrations_table(
         &mut self,
@@ -253,7 +272,7 @@ pub(crate) trait SqlFlavour:
         &'a mut self,
         sql: &'a str,
         params: &'a [quaint::prelude::Value<'a>],
-    ) -> BoxFuture<'_, ConnectorResult<quaint::prelude::ResultSet>>;
+    ) -> BoxFuture<'a, ConnectorResult<quaint::prelude::ResultSet>>;
 
     fn raw_cmd<'a>(&'a mut self, sql: &'a str) -> BoxFuture<'a, ConnectorResult<()>>;
 
@@ -304,11 +323,6 @@ fn validate_connection_infos_do_not_match(previous: &str, next: &str) -> Connect
 
 /// Remove all usage of non-enabled preview feature elements from the SqlSchema.
 fn normalize_sql_schema(sql_schema: &mut SqlSchema, preview_features: BitFlags<PreviewFeature>) {
-    // Remove this when the feature is GA
-    if !preview_features.contains(PreviewFeature::FullTextIndex) {
-        sql_schema.make_fulltext_indexes_normal();
-    }
-
     if !preview_features.contains(PreviewFeature::MultiSchema) {
         sql_schema.clear_namespaces();
     }

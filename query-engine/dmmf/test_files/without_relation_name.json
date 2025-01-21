@@ -4,6 +4,7 @@
     {
       "name": "User",
       "dbName": null,
+      "schema": null,
       "fields": [
         {
           "name": "id",
@@ -13,8 +14,9 @@
           "isUnique": false,
           "isId": true,
           "isReadOnly": false,
-          "type": "Int",
           "hasDefaultValue": false,
+          "type": "Int",
+          "nativeType": null,
           "isGenerated": false,
           "isUpdatedAt": false
         },
@@ -26,8 +28,9 @@
           "isUnique": false,
           "isId": false,
           "isReadOnly": false,
-          "type": "Post",
           "hasDefaultValue": false,
+          "type": "Post",
+          "nativeType": null,
           "relationName": "PostToUser",
           "relationFromFields": [],
           "relationToFields": [],
@@ -35,14 +38,15 @@
           "isUpdatedAt": false
         }
       ],
-      "isGenerated": false,
       "primaryKey": null,
       "uniqueFields": [],
-      "uniqueIndexes": []
+      "uniqueIndexes": [],
+      "isGenerated": false
     },
     {
       "name": "Post",
       "dbName": null,
+      "schema": null,
       "fields": [
         {
           "name": "id",
@@ -52,8 +56,9 @@
           "isUnique": false,
           "isId": true,
           "isReadOnly": false,
-          "type": "Int",
           "hasDefaultValue": false,
+          "type": "Int",
+          "nativeType": null,
           "isGenerated": false,
           "isUpdatedAt": false
         },
@@ -65,8 +70,9 @@
           "isUnique": false,
           "isId": false,
           "isReadOnly": true,
-          "type": "Int",
           "hasDefaultValue": false,
+          "type": "Int",
+          "nativeType": null,
           "isGenerated": false,
           "isUpdatedAt": false
         },
@@ -78,8 +84,9 @@
           "isUnique": false,
           "isId": false,
           "isReadOnly": false,
-          "type": "User",
           "hasDefaultValue": false,
+          "type": "User",
+          "nativeType": null,
           "relationName": "PostToUser",
           "relationFromFields": [
             "userId"
@@ -91,11 +98,33 @@
           "isUpdatedAt": false
         }
       ],
-      "isGenerated": false,
       "primaryKey": null,
       "uniqueFields": [],
-      "uniqueIndexes": []
+      "uniqueIndexes": [],
+      "isGenerated": false
     }
   ],
-  "types": []
+  "types": [],
+  "indexes": [
+    {
+      "model": "User",
+      "type": "id",
+      "isDefinedOnField": true,
+      "fields": [
+        {
+          "name": "id"
+        }
+      ]
+    },
+    {
+      "model": "Post",
+      "type": "id",
+      "isDefinedOnField": true,
+      "fields": [
+        {
+          "name": "id"
+        }
+      ]
+    }
+  ]
 }

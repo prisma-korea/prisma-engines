@@ -1,20 +1,15 @@
-use crate::{
-    column_metadata, error::*, model_extensions::*, sql_trace::trace_parent_to_string, sql_trace::SqlTraceComment,
-    value_ext::IntoTypedJsonExtension, AliasedCondition, ColumnMetadata, Context, SqlRow, ToSqlRow,
-};
+use crate::ser_raw::SerializedResultSet;
+use crate::{error::*, SqlRow, ToSqlRow};
 use async_trait::async_trait;
-use connector_interface::{filter::Filter, RecordFilter};
+use chrono::Utc;
 use futures::future::FutureExt;
 use itertools::Itertools;
-use opentelemetry::trace::TraceContextExt;
-use opentelemetry::trace::TraceFlags;
-use prisma_models::*;
 use quaint::{ast::*, connector::Queryable};
-use serde_json::{Map, Value};
+use query_structure::*;
+use sql_query_builder::{column_metadata, AsColumns, AsTable, ColumnMetadata, Context, FilterBuilder, SqlTraceComment};
 use std::{collections::HashMap, panic::AssertUnwindSafe};
-use tracing::{info_span, Span};
+use tracing::info_span;
 use tracing_futures::Instrument;
-use tracing_opentelemetry::OpenTelemetrySpanExt;
 
 #[async_trait]
 impl<Q: Queryable + ?Sized> QueryExt for Q {
@@ -24,19 +19,11 @@ impl<Q: Queryable + ?Sized> QueryExt for Q {
         idents: &[ColumnMetadata<'_>],
         ctx: &Context<'_>,
     ) -> crate::Result<Vec<SqlRow>> {
-        let span = info_span!("filter read query");
+        let span = info_span!("prisma:engine:filter_read_query");
 
-        let otel_ctx = span.context();
-        let span_ref = otel_ctx.span();
-        let span_ctx = span_ref.span_context();
-
-        let q = match (q, ctx.trace_id) {
-            (Query::Select(x), _) if span_ctx.trace_flags() == TraceFlags::SAMPLED => {
-                Query::Select(Box::from(x.comment(trace_parent_to_string(span_ctx))))
-            }
-            // This is part of the required changes to pass a traceid
-            (Query::Select(x), trace_id) => Query::Select(Box::from(x.add_trace_id(trace_id))),
-            (q, _) => q,
+        let q = match q {
+            Query::Select(x) => Query::Select(Box::from(x.add_traceparent(ctx.traceparent()))),
+            q => q,
         };
 
         let result_set = self.query(q).instrument(span).await?;
@@ -53,7 +40,7 @@ impl<Q: Queryable + ?Sized> QueryExt for Q {
     async fn raw_json<'a>(
         &'a self,
         mut inputs: HashMap<String, PrismaValue>,
-    ) -> std::result::Result<Value, crate::error::RawError> {
+    ) -> std::result::Result<RawJson, crate::error::RawError> {
         // Unwrapping query & params is safe since it's already passed the query parsing stage
         let query = inputs.remove("query").unwrap().into_string().unwrap();
         let params = inputs.remove("parameters").unwrap().into_list().unwrap();
@@ -61,24 +48,9 @@ impl<Q: Queryable + ?Sized> QueryExt for Q {
         let result_set = AssertUnwindSafe(self.query_raw_typed(&query, &params))
             .catch_unwind()
             .await??;
+        let raw_json = RawJson::try_new(SerializedResultSet(result_set))?;
 
-        // `query_raw` does not return column names in `ResultSet` when a call to a stored procedure is done
-        let columns: Vec<String> = result_set.columns().iter().map(ToString::to_string).collect();
-        let mut result = Vec::new();
-
-        for row in result_set.into_iter() {
-            let mut object = Map::new();
-
-            for (idx, p_value) in row.into_iter().enumerate() {
-                let column_name = columns.get(idx).unwrap_or(&format!("f{idx}")).clone();
-
-                object.insert(column_name, p_value.as_typed_json());
-            }
-
-            result.push(Value::Object(object));
-        }
-
-        Ok(Value::Array(result))
+        Ok(raw_json)
     }
 
     async fn raw_count<'a>(
@@ -102,7 +74,9 @@ impl<Q: Queryable + ?Sized> QueryExt for Q {
             .await?
             .into_iter()
             .next()
-            .ok_or(SqlError::RecordDoesNotExist)
+            .ok_or(SqlError::RecordDoesNotExist {
+                cause: "Filter returned no results".to_owned(),
+            })
     }
 
     async fn filter_selectors(
@@ -126,12 +100,12 @@ impl<Q: Queryable + ?Sized> QueryExt for Q {
     ) -> crate::Result<Vec<SelectionResult>> {
         let model_id: ModelProjection = model.primary_identifier().into();
         let id_cols: Vec<Column<'static>> = model_id.as_columns(ctx).collect();
+        let condition = FilterBuilder::without_top_level_joins().visit_filter(filter, ctx);
 
         let select = Select::from_table(model.as_table(ctx))
             .columns(id_cols)
-            .append_trace(&Span::current())
-            .add_trace_id(ctx.trace_id)
-            .so_that(filter.aliased_condition_from(None, false, ctx));
+            .add_traceparent(ctx.traceparent())
+            .so_that(condition);
 
         self.select_ids(select, model_id, ctx).await
     }
@@ -186,7 +160,7 @@ pub(crate) trait QueryExt {
     async fn raw_json<'a>(
         &'a self,
         mut inputs: HashMap<String, PrismaValue>,
-    ) -> std::result::Result<Value, crate::error::RawError>;
+    ) -> std::result::Result<RawJson, crate::error::RawError>;
 
     /// Execute a singular SQL query in the database, returning the number of
     /// affected rows.
@@ -218,4 +192,41 @@ pub(crate) trait QueryExt {
         model_id: ModelProjection,
         ctx: &Context<'_>,
     ) -> crate::Result<Vec<SelectionResult>>;
+}
+
+/// Attempts to convert a PrismaValue to a database value without any additional type information.
+/// Can't reliably map Null values.
+fn convert_lossy<'a>(pv: PrismaValue) -> Value<'a> {
+    match pv {
+        PrismaValue::String(s) => s.into(),
+        PrismaValue::Float(f) => f.into(),
+        PrismaValue::Boolean(b) => b.into(),
+        PrismaValue::DateTime(d) => d.with_timezone(&Utc).into(),
+        PrismaValue::Enum(e) => e.into(),
+        PrismaValue::Int(i) => i.into(),
+        PrismaValue::BigInt(i) => i.into(),
+        PrismaValue::Uuid(u) => u.to_string().into(),
+        PrismaValue::List(l) => Value::array(l.into_iter().map(convert_lossy)),
+        PrismaValue::Json(s) => Value::json(serde_json::from_str(&s).unwrap()),
+        PrismaValue::Bytes(b) => Value::bytes(b),
+        PrismaValue::Null => Value::null_int32(), // Can't tell which type the null is supposed to be.
+        PrismaValue::Object(_) => unimplemented!(),
+        PrismaValue::Placeholder { name, r#type } => Value::var(name, convert_placeholder_type_to_var_type(&r#type)),
+    }
+}
+
+fn convert_placeholder_type_to_var_type(pt: &PlaceholderType) -> VarType {
+    match pt {
+        PlaceholderType::Any => VarType::Unknown,
+        PlaceholderType::String => VarType::Text,
+        PlaceholderType::Int => VarType::Int32,
+        PlaceholderType::BigInt => VarType::Int64,
+        PlaceholderType::Float => VarType::Numeric,
+        PlaceholderType::Boolean => VarType::Boolean,
+        PlaceholderType::Decimal => VarType::Numeric,
+        PlaceholderType::Date => VarType::DateTime,
+        PlaceholderType::Array(t) => VarType::Array(Box::new(convert_placeholder_type_to_var_type(t))),
+        PlaceholderType::Object => VarType::Json,
+        PlaceholderType::Bytes => VarType::Bytes,
+    }
 }

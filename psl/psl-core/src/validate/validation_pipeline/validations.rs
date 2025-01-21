@@ -13,6 +13,8 @@ mod relation_fields;
 mod relations;
 mod views;
 
+use crate::datamodel_connector::ConnectorCapability;
+
 use super::context::Context;
 use names::Names;
 use parser_database::walkers::RefinedRelationWalker;
@@ -114,7 +116,6 @@ pub(super) fn validate(ctx: &mut Context<'_>) {
             indexes::field_length_prefix_supported(index, ctx);
             indexes::index_algorithm_is_supported(index, ctx);
             indexes::hash_index_must_not_use_sort_param(index, ctx);
-            indexes::fulltext_index_preview_feature_enabled(index, ctx);
             indexes::fulltext_index_supported(index, ctx);
             indexes::fulltext_columns_should_not_define_length(index, ctx);
             indexes::fulltext_column_sort_is_supported(index, ctx);
@@ -123,6 +124,7 @@ pub(super) fn validate(ctx: &mut Context<'_>) {
             indexes::supports_clustering_setting(index, ctx);
             indexes::clustering_can_be_defined_only_once(index, ctx);
             indexes::opclasses_are_not_allowed_with_other_than_normal_indices(index, ctx);
+            indexes::composite_type_in_compound_unique_index(index, ctx);
 
             for field_attribute in index.scalar_field_attributes() {
                 let span = index.ast_attribute().span;
@@ -133,7 +135,7 @@ pub(super) fn validate(ctx: &mut Context<'_>) {
         }
     }
 
-    if ctx.connector.supports_enums() {
+    if ctx.has_capability(ConnectorCapability::Enums) {
         enums::database_name_clashes(ctx);
     }
 

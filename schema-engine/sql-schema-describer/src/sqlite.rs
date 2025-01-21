@@ -2,18 +2,19 @@
 
 use crate::{
     getters::Getter, ids::*, parsers::Parser, Column, ColumnArity, ColumnType, ColumnTypeFamily, DefaultValue,
-    DescriberResult, ForeignKeyAction, Lazy, PrismaValue, Regex, SQLSortOrder, SqlMetadata, SqlSchema,
-    SqlSchemaDescriberBackend,
+    DescriberResult, ForeignKeyAction, Lazy, PrismaValue, Regex, SQLSortOrder, SqlSchema,
 };
 use either::Either;
 use indexmap::IndexMap;
 use quaint::{
-    ast::Value,
-    connector::{GetRow, ToColumnNames},
+    ast::{Value, ValueType},
     prelude::ResultRow,
 };
 use std::{any::type_name, borrow::Cow, collections::BTreeMap, convert::TryInto, fmt::Debug, path::Path};
 use tracing::trace;
+
+#[cfg(feature = "sqlite-native")]
+pub(crate) mod native;
 
 #[async_trait::async_trait]
 pub trait Connection {
@@ -22,26 +23,6 @@ pub trait Connection {
         sql: &'a str,
         params: &'a [quaint::prelude::Value<'a>],
     ) -> quaint::Result<quaint::prelude::ResultSet>;
-}
-
-#[async_trait::async_trait]
-impl Connection for std::sync::Mutex<quaint::connector::rusqlite::Connection> {
-    async fn query_raw<'a>(
-        &'a self,
-        sql: &'a str,
-        params: &'a [quaint::prelude::Value<'a>],
-    ) -> quaint::Result<quaint::prelude::ResultSet> {
-        let conn = self.lock().unwrap();
-        let mut stmt = conn.prepare_cached(sql)?;
-        let mut rows = stmt.query(quaint::connector::rusqlite::params_from_iter(params.iter()))?;
-        let column_names = rows.to_column_names();
-        let mut converted_rows = Vec::new();
-        while let Some(row) = rows.next()? {
-            converted_rows.push(row.get_result_row().unwrap());
-        }
-
-        Ok(quaint::prelude::ResultSet::new(column_names, converted_rows))
-    }
 }
 
 #[async_trait::async_trait]
@@ -62,32 +43,6 @@ pub struct SqlSchemaDescriber<'a> {
 impl Debug for SqlSchemaDescriber<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct(type_name::<SqlSchemaDescriber<'_>>()).finish()
-    }
-}
-
-#[async_trait::async_trait]
-impl SqlSchemaDescriberBackend for SqlSchemaDescriber<'_> {
-    async fn list_databases(&self) -> DescriberResult<Vec<String>> {
-        Ok(self.get_databases().await?)
-    }
-
-    async fn get_metadata(&self, _schema: &str) -> DescriberResult<SqlMetadata> {
-        let mut sql_schema = SqlSchema::default();
-        let table_count = self.get_table_names(&mut sql_schema).await?.len();
-        let size_in_bytes = self.get_size().await?;
-
-        Ok(SqlMetadata {
-            table_count,
-            size_in_bytes,
-        })
-    }
-
-    async fn describe(&self, _schemas: &[&str]) -> DescriberResult<SqlSchema> {
-        self.describe_impl().await
-    }
-
-    async fn version(&self) -> DescriberResult<Option<String>> {
-        Ok(Some(quaint::connector::sqlite_version().to_owned()))
     }
 }
 
@@ -162,7 +117,7 @@ impl<'a> SqlSchemaDescriber<'a> {
 
                 (name, r#type, definition)
             })
-            .filter(|(table_name, _, _)| !is_system_table(table_name));
+            .filter(|(table_name, _, _)| !is_table_ignored(table_name));
 
         let mut map = IndexMap::default();
 
@@ -345,7 +300,10 @@ async fn push_columns(
         let default = match row.get("dflt_value") {
             None => None,
             Some(val) if val.is_null() => None,
-            Some(Value::Text(Some(cow_string))) => {
+            Some(Value {
+                typed: ValueType::Text(Some(cow_string)),
+                ..
+            }) => {
                 let default_string = cow_string.to_string();
 
                 if default_string.to_lowercase() == "null" {
@@ -385,8 +343,8 @@ async fn push_columns(
                             }
                             _ => DefaultValue::db_generated(default_string),
                         },
+                        ColumnTypeFamily::Json => DefaultValue::value(default_string),
                         ColumnTypeFamily::Binary => DefaultValue::db_generated(default_string),
-                        ColumnTypeFamily::Json => DefaultValue::db_generated(default_string),
                         ColumnTypeFamily::Uuid => DefaultValue::db_generated(default_string),
                         ColumnTypeFamily::Enum(_) => DefaultValue::value(PrismaValue::Enum(default_string)),
                         ColumnTypeFamily::Unsupported(_) => DefaultValue::db_generated(default_string),
@@ -573,6 +531,7 @@ fn get_column_type(mut tpe: String, arity: ColumnArity) -> ColumnType {
         "int[]" => ColumnTypeFamily::Int,
         "integer[]" => ColumnTypeFamily::Int,
         "text[]" => ColumnTypeFamily::String,
+        "jsonb" => ColumnTypeFamily::Json,
         // NUMERIC type affinity
         data_type if data_type.starts_with("decimal") => ColumnTypeFamily::Decimal,
         data_type => ColumnTypeFamily::Unsupported(data_type.into()),
@@ -600,18 +559,22 @@ fn unquote_sqlite_string_default(s: &str) -> Cow<'_, str> {
     }
 }
 
-/// Returns whether a table is one of the SQLite system tables.
-fn is_system_table(table_name: &str) -> bool {
-    SQLITE_SYSTEM_TABLES
-        .iter()
-        .any(|system_table| table_name == *system_table)
+/// Returns whether a table is one of the SQLite system tables or a Cloudflare D1 specific table.
+fn is_table_ignored(table_name: &str) -> bool {
+    SQLITE_IGNORED_TABLES.iter().any(|table| table_name == *table)
 }
 
 /// See https://www.sqlite.org/fileformat2.html
-const SQLITE_SYSTEM_TABLES: &[&str] = &[
+/// + Cloudflare D1 specific tables
+const SQLITE_IGNORED_TABLES: &[&str] = &[
+    // SQLite system tables
     "sqlite_sequence",
     "sqlite_stat1",
     "sqlite_stat2",
     "sqlite_stat3",
     "sqlite_stat4",
+    // Cloudflare D1 specific tables
+    "_cf_KV",
+    // This is the default but can be configured by the user
+    "d1_migrations",
 ];
