@@ -1,7 +1,5 @@
 //! A single connection abstraction to a SQL database.
 
-#[cfg(feature = "sqlite")]
-use crate::connector::DEFAULT_SQLITE_SCHEMA_NAME;
 use crate::{
     ast,
     connector::{self, ConnectionInfo, IsolationLevel, Queryable, TransactionCapable},
@@ -9,13 +7,16 @@ use crate::{
 use async_trait::async_trait;
 use std::{fmt, sync::Arc};
 
-#[cfg(feature = "sqlite")]
+#[cfg(feature = "sqlite-native")]
 use std::convert::TryFrom;
+
+#[cfg(native)]
+use crate::connector::NativeConnectionInfo;
 
 /// The main entry point and an abstraction over a database connection.
 #[derive(Clone)]
 pub struct Quaint {
-    inner: Arc<dyn Queryable>,
+    inner: Arc<dyn TransactionCapable>,
     connection_info: Arc<ConnectionInfo>,
 }
 
@@ -25,7 +26,15 @@ impl fmt::Debug for Quaint {
     }
 }
 
-impl TransactionCapable for Quaint {}
+#[async_trait]
+impl TransactionCapable for Quaint {
+    async fn start_transaction<'a>(
+        &'a self,
+        isolation: Option<IsolationLevel>,
+    ) -> crate::Result<Box<dyn connector::Transaction + 'a>> {
+        self.inner.start_transaction(isolation).await
+    }
+}
 
 impl Quaint {
     /// Create a new connection to the database. The connection string
@@ -127,35 +136,37 @@ impl Quaint {
     /// - `isolationLevel` the transaction isolation level. Possible values:
     ///   `READ UNCOMMITTED`, `READ COMMITTED`, `REPEATABLE READ`, `SNAPSHOT`,
     ///   `SERIALIZABLE`.
+    #[cfg(native)]
     #[allow(unreachable_code)]
     pub async fn new(url_str: &str) -> crate::Result<Self> {
         let inner = match url_str {
-            #[cfg(feature = "sqlite")]
+            #[cfg(feature = "sqlite-native")]
             s if s.starts_with("file") => {
                 let params = connector::SqliteParams::try_from(s)?;
                 let sqlite = connector::Sqlite::new(&params.file_path)?;
 
-                Arc::new(sqlite) as Arc<dyn Queryable>
+                Arc::new(sqlite) as Arc<dyn TransactionCapable>
             }
-            #[cfg(feature = "mysql")]
+            #[cfg(feature = "mysql-native")]
             s if s.starts_with("mysql") => {
                 let url = connector::MysqlUrl::new(url::Url::parse(s)?)?;
                 let mysql = connector::Mysql::new(url).await?;
 
-                Arc::new(mysql) as Arc<dyn Queryable>
+                Arc::new(mysql) as Arc<dyn TransactionCapable>
             }
-            #[cfg(feature = "postgresql")]
+            #[cfg(feature = "postgresql-native")]
             s if s.starts_with("postgres") || s.starts_with("postgresql") => {
-                let url = connector::PostgresUrl::new(url::Url::parse(s)?)?;
-                let psql = connector::PostgreSql::new(url).await?;
-                Arc::new(psql) as Arc<dyn Queryable>
+                let url = connector::PostgresNativeUrl::new(url::Url::parse(s)?)?;
+                let tls_manager = connector::MakeTlsConnectorManager::new(url.clone());
+                let psql = connector::PostgreSqlWithDefaultCache::new(url, &tls_manager).await?;
+                Arc::new(psql) as Arc<dyn TransactionCapable>
             }
-            #[cfg(feature = "mssql")]
+            #[cfg(feature = "mssql-native")]
             s if s.starts_with("jdbc:sqlserver") | s.starts_with("sqlserver") => {
                 let url = connector::MssqlUrl::new(s)?;
                 let psql = connector::Mssql::new(url).await?;
 
-                Arc::new(psql) as Arc<dyn Queryable>
+                Arc::new(psql) as Arc<dyn TransactionCapable>
             }
             _ => unimplemented!("Supported url schemes: file or sqlite, mysql, postgresql or jdbc:sqlserver."),
         };
@@ -166,15 +177,16 @@ impl Quaint {
         Ok(Self { inner, connection_info })
     }
 
-    #[cfg(feature = "sqlite")]
-    #[cfg_attr(feature = "docs", doc(cfg(sqlite)))]
+    #[cfg(feature = "sqlite-native")]
     /// Open a new SQLite database in memory.
     pub fn new_in_memory() -> crate::Result<Quaint> {
+        use crate::connector::sqlite::DEFAULT_SQLITE_DATABASE;
+
         Ok(Quaint {
             inner: Arc::new(connector::Sqlite::new_in_memory()?),
-            connection_info: Arc::new(ConnectionInfo::InMemorySqlite {
-                db_name: DEFAULT_SQLITE_SCHEMA_NAME.to_owned(),
-            }),
+            connection_info: Arc::new(ConnectionInfo::Native(NativeConnectionInfo::InMemorySqlite {
+                db_name: DEFAULT_SQLITE_DATABASE.to_owned(),
+            })),
         })
     }
 
@@ -183,6 +195,7 @@ impl Quaint {
         &self.connection_info
     }
 
+    #[cfg(native)]
     fn log_start(info: &ConnectionInfo) {
         let family = info.sql_family();
         let pg_bouncer = if info.pg_bouncer() { " in PgBouncer mode" } else { "" };
@@ -203,6 +216,10 @@ impl Queryable for Quaint {
 
     async fn query_raw_typed(&self, sql: &str, params: &[ast::Value<'_>]) -> crate::Result<connector::ResultSet> {
         self.inner.query_raw_typed(sql, params).await
+    }
+
+    async fn describe_query(&self, sql: &str) -> crate::Result<connector::DescribedQuery> {
+        self.inner.describe_query(sql).await
     }
 
     async fn execute(&self, q: ast::Query<'_>) -> crate::Result<u64> {

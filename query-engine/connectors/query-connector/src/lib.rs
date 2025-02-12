@@ -1,22 +1,14 @@
 #![allow(clippy::derive_partial_eq_without_eq)]
 
 pub mod error;
-pub mod filter;
 
 mod coerce;
-mod compare;
 mod interface;
-mod query_arguments;
 mod upsert;
-mod write_args;
 
 pub use coerce::*;
-pub use compare::*;
-pub use filter::*;
 pub use interface::*;
-pub use query_arguments::*;
 pub use upsert::*;
-pub use write_args::*;
 
 pub type Result<T> = std::result::Result<T, error::ConnectorError>;
 
@@ -26,6 +18,6 @@ pub type Result<T> = std::result::Result<T, error::ConnectorError>;
 /// However when we updating any records we want to return an empty array if zero items were updated
 #[derive(PartialEq)]
 pub enum UpdateType {
-    Many,
+    Many { limit: Option<usize> },
     One,
 }

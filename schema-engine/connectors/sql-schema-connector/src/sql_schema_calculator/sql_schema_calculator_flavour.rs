@@ -1,6 +1,13 @@
+#[cfg(feature = "mssql")]
 mod mssql;
+
+#[cfg(feature = "mysql")]
 mod mysql;
+
+#[cfg(any(feature = "postgresql", feature = "cockroachdb"))]
 mod postgres;
+
+#[cfg(feature = "sqlite")]
 mod sqlite;
 
 use psl::parser_database::{ast::FieldArity, walkers::*};
@@ -8,6 +15,10 @@ use sql_schema_describer::{self as sql, ColumnArity, ColumnType, ColumnTypeFamil
 
 pub(crate) trait SqlSchemaCalculatorFlavour {
     fn calculate_enums(&self, _ctx: &mut super::Context<'_>) {}
+
+    fn column_type_for_enum(&self, _enm: EnumWalker<'_>, _ctx: &super::Context<'_>) -> Option<sql::ColumnTypeFamily> {
+        None
+    }
 
     fn column_default_value_for_autoincrement(&self) -> Option<sql::DefaultValue> {
         None
@@ -39,4 +50,13 @@ pub(crate) trait SqlSchemaCalculatorFlavour {
     }
 
     fn push_connector_data(&self, _context: &mut super::Context<'_>) {}
+
+    fn m2m_join_table_constraint(&self) -> JoinTableUniquenessConstraint {
+        JoinTableUniquenessConstraint::UniqueIndex
+    }
+}
+
+pub(crate) enum JoinTableUniquenessConstraint {
+    PrimaryKey,
+    UniqueIndex,
 }

@@ -4,7 +4,7 @@ pub(crate) use ::indoc::{formatdoc, indoc};
 pub(crate) use asserts::*;
 pub(crate) use expect_test::expect;
 
-use psl::Configuration;
+use psl::{parse_configuration_multi_file, Configuration, SourceFile};
 
 pub(crate) fn reformat(input: &str) -> String {
     psl::reformat(input, 2).unwrap_or_else(|| input.to_owned())
@@ -37,6 +37,15 @@ pub(crate) fn parse_configuration(datamodel_string: &str) -> Configuration {
 }
 
 #[track_caller]
+pub(crate) fn render_datasources(datamodel_string: &str) -> String {
+    let src = SourceFile::new_allocated(datamodel_string.to_owned().into_boxed_str().into());
+    match parse_configuration_multi_file(&[("schema.prisma".into(), src)]) {
+        Ok((files, config)) => psl::get_config::render_sources_to_json(&config.datasources, &files),
+        Err((files, errors)) => panic!("Schema parsing failed:\n\n{}", files.render_diagnostics(&errors)),
+    }
+}
+
+#[track_caller]
 pub(crate) fn expect_error(schema: &str, expectation: &expect_test::Expect) {
     match psl::parse_schema(schema) {
         Ok(_) => panic!("Expected a validation error, but the schema is valid."),
@@ -56,13 +65,6 @@ pub(crate) fn assert_valid(schema: &str) {
     }
 }
 
-pub(crate) const SQLITE_SOURCE: &str = r#"
-    datasource db {
-        provider = "sqlite"
-        url      = "file:dev.db"
-    }
-"#;
-
 pub(crate) const POSTGRES_SOURCE: &str = r#"
     datasource db {
         provider = "postgres"
@@ -74,5 +76,12 @@ pub(crate) const MYSQL_SOURCE: &str = r#"
     datasource db {
         provider = "mysql"
         url      = "mysql://localhost:3306"
+    }
+"#;
+
+pub(crate) const MSSQL_SOURCE: &str = r#"
+    datasource db {
+        provider = "sqlserver"
+        url      = "jdbc:sqlserver://localhost:3306"
     }
 "#;

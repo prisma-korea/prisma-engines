@@ -19,6 +19,8 @@ pub fn reformat(input: &str, indent_width: usize) -> Option<String> {
         renderer.stream.push('\n');
     }
 
+    // TODO: why do we need to use a `Some` here?
+    // Also: if we really want to return an `Option<String>`, why do unwrap in `ast.next()`?
     Some(renderer.stream)
 }
 
@@ -436,6 +438,32 @@ fn reformat_comment_block(pair: Pair<'_>, table: &mut TableFormat) {
                         _ => unreachable!(),
                     }
                 }
+            }
+            Rule::multi_line_comment => {
+                // Start the canonical multi-line comment block
+                table.start_new_line();
+                table.append_suffix_to_current_row("/**");
+
+                let content = current.as_str();
+                // Strip off `/*` and `*/`
+                let inner = &content[2..content.len() - 2];
+
+                // Normalize lines by removing leading `*` and extra whitespace.
+                for line in inner.lines() {
+                    let line = line.trim();
+                    // Remove a leading `*` if present, along with any following spaces.
+                    let line = line.strip_prefix('*').map(str::trim_start).unwrap_or(line);
+
+                    if !line.is_empty() {
+                        table.start_new_line();
+                        table.append_suffix_to_current_row(" * ");
+                        table.append_suffix_to_current_row(line);
+                    }
+                }
+
+                // Close the multi-line comment block
+                table.start_new_line();
+                table.append_suffix_to_current_row(" */");
             }
             _ => unreachable!(),
         }

@@ -8,7 +8,7 @@ use test_setup::runtime::run_with_thread_local_runtime;
 
 pub struct CreateMigration<'a> {
     api: &'a mut dyn SchemaConnector,
-    schema: &'a str,
+    files: Vec<SchemaContainer>,
     migrations_directory: &'a TempDir,
     draft: bool,
     name: &'a str,
@@ -18,12 +18,18 @@ impl<'a> CreateMigration<'a> {
     pub fn new(
         api: &'a mut dyn SchemaConnector,
         name: &'a str,
-        schema: &'a str,
+        files: &[(&'a str, &'a str)],
         migrations_directory: &'a TempDir,
     ) -> Self {
         CreateMigration {
             api,
-            schema,
+            files: files
+                .iter()
+                .map(|(path, content)| SchemaContainer {
+                    path: path.to_string(),
+                    content: content.to_string(),
+                })
+                .collect(),
             migrations_directory,
             draft: false,
             name,
@@ -40,7 +46,7 @@ impl<'a> CreateMigration<'a> {
         let output = create_migration(
             CreateMigrationInput {
                 migrations_directory_path: self.migrations_directory.path().to_str().unwrap().to_owned(),
-                prisma_schema: self.schema.to_owned(),
+                schema: SchemasContainer { files: self.files },
                 draft: self.draft,
                 migration_name: self.name.to_owned(),
             },
@@ -76,7 +82,7 @@ impl std::fmt::Debug for CreateMigrationAssertion<'_> {
     }
 }
 
-impl<'a> CreateMigrationAssertion<'a> {
+impl CreateMigrationAssertion<'_> {
     /// Assert that there are `expected_count` migrations in the migrations directory.
     #[tracing::instrument(skip(self))]
     #[track_caller]

@@ -1,70 +1,116 @@
 [workspace]
 resolver = "2"
 members = [
-  "schema-engine/cli",
-  "schema-engine/core",
-  "schema-engine/connectors/*",
-  "schema-engine/datamodel-renderer",
-  "schema-engine/json-rpc-api-build",
-  "schema-engine/sql-migration-tests",
-  "schema-engine/sql-introspection-tests",
-  "schema-engine/mongodb-schema-describer",
-  "schema-engine/sql-schema-describer",
-  "query-engine/connectors/*",
-  "query-engine/connector-test-kit-rs/qe-setup",
-  "query-engine/connector-test-kit-rs/query-engine-tests",
-  "query-engine/connector-test-kit-rs/query-test-macros",
-  "query-engine/connector-test-kit-rs/query-tests-setup",
-  "query-engine/core",
-  "query-engine/core-tests",
-  "query-engine/black-box-tests",
-  "query-engine/dmmf",
-  "query-engine/metrics",
-  "query-engine/nodejs-drivers",
-  "query-engine/prisma-models",
-  "query-engine/query-engine",
-  "query-engine/query-engine-node-api",
-  "query-engine/request-handlers",
-  "query-engine/schema",
-  "libs/*",
-  "prisma-fmt",
-  "prisma-fmt-wasm",
-  "psl/*",
+    "schema-engine/cli",
+    "schema-engine/core",
+    "schema-engine/connectors/*",
+    "schema-engine/datamodel-renderer",
+    "schema-engine/json-rpc-api-build",
+    "schema-engine/mongodb-schema-describer",
+    "schema-engine/sql-migration-tests",
+    "schema-engine/sql-introspection-tests",
+    "schema-engine/schema-engine-wasm",
+    "schema-engine/sql-schema-describer",
+    "query-engine/connectors/*",
+    "query-engine/connector-test-kit-rs/qe-setup",
+    "query-engine/connector-test-kit-rs/query-engine-tests",
+    "query-engine/connector-test-kit-rs/query-test-macros",
+    "query-engine/connector-test-kit-rs/query-tests-setup",
+    "query-engine/core",
+    "query-engine/core-tests",
+    "query-engine/black-box-tests",
+    "query-engine/dmmf",
+    "query-engine/query-structure",
+    "query-engine/query-engine",
+    "query-engine/query-engine-node-api",
+    "query-engine/query-engine-wasm",
+    "query-engine/query-engine-c-abi",
+    "query-engine/request-handlers",
+    "query-engine/schema",
+    "query-engine/query-builders/*",
+    "query-compiler/query-compiler",
+    "query-compiler/query-compiler-playground",
+    "query-compiler/query-compiler-wasm",
+    "libs/*",
+    "prisma-fmt",
+    "prisma-schema-wasm",
+    "psl/*",
+    "quaint",
 ]
 
-# All path dependencies residing in the workspace directory automatically become members.
-# The following shouldn't be considered members but embedded dependencies.
-exclude = [
-  "quaint",
-  "quaint/test-macros",
-  "quaint/test-setup"
-]
+[workspace.lints.rust.unexpected_cfgs]
+level = "warn"
+check-cfg = ['cfg(wasm_bindgen_unstable_test_coverage)', 'cfg(debug_assert)']
 
 [workspace.dependencies]
+async-trait = { version = "0.1.77" }
+bigdecimal = "0.3"
+enumflags2 = { version = "0.7", features = ["serde"] }
+futures = "0.3"
 psl = { path = "./psl/psl" }
-serde_json = { version = "1", features = ["float_roundtrip", "preserve_order"] }
+serde_json = { version = "1", features = [
+    "float_roundtrip",
+    "preserve_order",
+    "raw_value",
+] }
 serde = { version = "1", features = ["derive"] }
-tokio = { version = "1.25", features = ["rt-multi-thread", "macros", "sync", "io-std", "io-util", "parking_lot", "time"] }
+tokio = { version = "1", features = [
+    "rt-multi-thread",
+    "macros",
+    "sync",
+    "io-std",
+    "io-util",
+    "parking_lot",
+    "time",
+] }
+chrono = { version = "0.4.38", features = ["serde"] }
+derive_more = "0.99.17"
 user-facing-errors = { path = "./libs/user-facing-errors" }
-uuid = { version = "1", features = ["serde"] }
+uuid = { version = "1", features = ["serde", "v4", "v7", "js"] }
+cuid = { git = "https://github.com/prisma/cuid-rust", branch = "v1.3.3-wasm32-unknown-unknown" }
+ulid = "1"
+getrandom = { version = "0.2" }
+
 indoc = "2.0.1"
+indexmap = { version = "2.2.2", features = ["serde"] }
+itertools = "0.12"
 connection-string = "0.2"
+napi = { version = "2.16.13", default-features = false, features = [
+    "napi9",
+    "tokio_rt",
+    "serde-json",
+] }
+napi-derive = "2.16.12"
+pin-project = "1"
+pretty = { version = "0.12", features = ["termcolor"] }
+rand = { version = "0.8" }
+regex = { version = "1", features = ["std"] }
+serde_repr = { version = "0.1.17" }
+serde-wasm-bindgen = { version = "0.5" }
+tracing = { version = "0.1" }
+tracing-futures = "0.2"
+tsify = { version = "0.4.5" }
+thiserror = "1.0"
+
+# version for `wasm-bindgen@0.2.93`, see:
+# https://github.com/rustwasm/wasm-bindgen/pull/4072/
+js-sys = { version = "0.3.70" }
+
+wasm-bindgen = { version = "0.2.93" }
+wasm-bindgen-futures = { version = "0.4" }
+wasm-rs-dbg = { version = "0.1.2", default-features = false, features = [
+    "console-error",
+] }
+wasm-bindgen-test = { version = "0.3.0" }
+url = { version = "2.5.0" }
+
+bson = { version = "2.11.0", features = ["chrono-0_4", "uuid-1"] }
+mongodb = { git = "https://github.com/prisma/mongo-rust-driver.git", branch = "RUST-1994/happy-eyeballs" }
+
+insta = "1"
 
 [workspace.dependencies.quaint]
 path = "quaint"
-features = [
-  "bigdecimal",
-  "chrono",
-  "expose-drivers",
-  "fmt-sql",
-  "json",
-  "mssql",
-  "mysql",
-  "pooled",
-  "postgresql",
-  "sqlite",
-  "uuid",
-]
 
 [profile.dev.package.backtrace]
 opt-level = 3
@@ -75,10 +121,13 @@ strip = "symbols"
 [profile.release.package.query-engine]
 strip = "symbols"
 
+[profile.release.package.query-engine-c-abi]
+strip = "symbols"
+
 [profile.release]
 lto = "fat"
 codegen-units = 1
-opt-level = 's' # Optimize for size.
+opt-level = 's'   # Optimize for size.
 
 [profile.profiling]
 inherits = "release"

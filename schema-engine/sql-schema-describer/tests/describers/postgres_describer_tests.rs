@@ -1022,6 +1022,7 @@ fn all_postgres_column_types_must_work(api: TestApi) {
                     BTree,
                 ),
             ],
+            expression_indexes: [],
             index_null_position: {},
             constraint_options: {
                 Index(
@@ -1206,6 +1207,7 @@ fn postgres_sequences_must_work(api: TestApi) {
         PostgresSchemaExt {
             opclasses: [],
             indexes: [],
+            expression_indexes: [],
             index_null_position: {},
             constraint_options: {},
             table_options: [],
@@ -1240,7 +1242,7 @@ fn postgres_sequences_must_work(api: TestApi) {
 
 #[test_connector(tags(Postgres), exclude(CockroachDb))]
 fn postgres_multi_field_indexes_must_be_inferred_in_the_right_order(api: TestApi) {
-    let schema = r##"
+    let schema = r#"
         CREATE TABLE "indexes_test" (
             id TEXT PRIMARY KEY,
             name TEXT NOT NULL,
@@ -1249,7 +1251,7 @@ fn postgres_multi_field_indexes_must_be_inferred_in_the_right_order(api: TestApi
 
         CREATE UNIQUE INDEX "my_idx" ON "indexes_test" (name, age);
         CREATE INDEX "my_idx2" ON "indexes_test" (age, name);
-    "##;
+    "#;
     api.raw_cmd(schema);
 
     let schema = api.describe();
@@ -1717,6 +1719,7 @@ fn array_column_defaults_with_array_constructor_syntax(api: TestApi) {
             text_empty TEXT[] NOT NULL DEFAULT ARRAY[]::TEXT[],
             text TEXT[] NOT NULL DEFAULT ARRAY['abc']::TEXT[],
             text_c_escape TEXT[] NOT NULL DEFAULT ARRAY[E'abc', E'def']::TEXT[],
+            varchar_empty VARCHAR(255)[] NOT NULL DEFAULT ARRAY[]::VARCHAR(255)[],
             colors COLOR[] NOT NULL DEFAULT ARRAY['RED', 'GREEN']::COLOR[],
             int_defaults INT4[] NOT NULL DEFAULT ARRAY[9, 12999, -4, 0, 1249849]::INT4[],
             float_defaults DOUBLE PRECISION[] NOT NULL DEFAULT ARRAY[0, 9.12, 3.14, 0.1242, 124949.124949]::DOUBLE PRECISION[],
@@ -1738,6 +1741,7 @@ fn array_column_defaults_with_array_constructor_syntax(api: TestApi) {
     assert_default("text_empty", vec![]);
     assert_default("text", vec!["abc".into()]);
     assert_default("text_c_escape", vec!["abc".into(), "def".into()]);
+    assert_default("varchar_empty", vec![]);
     assert_default(
         "colors",
         vec![
@@ -1804,6 +1808,7 @@ fn extensions_are_described_correctly(api: TestApi) {
         PostgresSchemaExt {
             opclasses: [],
             indexes: [],
+            expression_indexes: [],
             index_null_position: {},
             constraint_options: {},
             table_options: [],

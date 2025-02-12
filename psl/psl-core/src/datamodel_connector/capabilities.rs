@@ -70,10 +70,11 @@ capabilities!(
     MultipleFullTextAttributesPerModel,
     ClusteringSetting,
     // Start of query-engine-only Capabilities
-    EnumArrayPush,
+    EnumArrayPush, // implies the ScalarList capability. Necessary, as CockroachDB supports pushing to a list of scalars, but not to the particular case of an enum list. See https://github.com/cockroachdb/cockroach/issues/71388
     InsensitiveFilters,
     CreateMany,
     CreateManyWriteableAutoIncId,
+    SupportsDefaultInInsert, // This capability is set if connector supports using `DEFAULT` instead of a value in the list of `INSERT` arguments.
     WritableAutoincField,
     CreateSkipDuplicates,
     UpdateableId,
@@ -82,12 +83,12 @@ capabilities!(
     JsonFilteringArrayPath, // Connector supports filtering json fields using array path (eg: postgres).
     JsonFilteringAlphanumeric, // Connector supports alphanumeric json filters (gt, gte, lt, lte...).
     JsonFilteringAlphanumericFieldRef, // Connector supports alphanumeric json filters against a json field reference.
+    JsonArrayContains, // Connector supports the contains operator for json fields.
     CompoundIds,
     AnyId, // Any (or combination of) uniques and not only id fields can constitute an id for a model.
-    SqlQueryRaw,
-    MongoDbQueryRaw,
-    FullTextSearchWithoutIndex,
-    FullTextSearchWithIndex,
+    NativeFullTextSearch,
+    NativeFullTextSearchWithoutIndex,
+    NativeFullTextSearchWithIndex,
     AdvancedJsonNullability,    // Connector distinguishes between their null type and JSON null.
     UndefinedType,              // Connector distinguishes `null` and `undefined`
     DecimalType,                // Connector supports Prisma Decimal type.
@@ -100,7 +101,15 @@ capabilities!(
     SupportsTxIsolationRepeatableRead,
     SupportsTxIsolationSerializable,
     SupportsTxIsolationSnapshot,
-    NativeUpsert
+    NativeUpsert,
+    InsertReturning,
+    UpdateReturning,
+    RowIn,                                  // Connector supports (a, b) IN (c, d) expression.
+    DistinctOn,                             // Connector supports DB-level distinct (e.g. postgres)
+    DeleteReturning,                        // Connector supports deleting records and returning them in one operation.
+    SupportsFiltersOnRelationsWithoutJoins, // Connector supports rendering filters on relation fields without joins.
+    LateralJoin,                            // Connector supports lateral joins to resolve relations.
+    CorrelatedSubqueries,                   // Connector supports correlated subqueries to resolve relations.
 );
 
 /// Contains all capabilities that the connector is able to serve.

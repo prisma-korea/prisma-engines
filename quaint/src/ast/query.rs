@@ -4,7 +4,7 @@ use std::borrow::Cow;
 use super::IntoCommonTableExpression;
 
 /// A database query
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, PartialEq)]
 pub enum Query<'a> {
     Select(Box<Select<'a>>),
     Insert(Box<Insert<'a>>),
@@ -24,7 +24,7 @@ where
     }
 }
 
-impl<'a> Query<'a> {
+impl Query<'_> {
     pub fn is_select(&self) -> bool {
         matches!(self, Query::Select(_))
     }
@@ -53,6 +53,7 @@ pub enum SelectQuery<'a> {
     Union(Box<Union<'a>>),
 }
 
+#[cfg_attr(not(feature = "mssql"), allow(clippy::needless_lifetimes))]
 impl<'a> SelectQuery<'a> {
     /// Finds all named values or columns from the selection.
     pub fn named_selection(&self) -> Vec<String> {

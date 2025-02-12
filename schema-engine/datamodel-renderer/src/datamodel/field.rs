@@ -113,7 +113,7 @@ impl<'a> Field<'a> {
     /// ```
     pub fn documentation(&mut self, documentation: impl Into<Cow<'a, str>>) {
         match self.documentation.as_mut() {
-            Some(docs) => docs.push(documentation),
+            Some(docs) => docs.push(documentation.into()),
             None => self.documentation = Some(Documentation(documentation.into())),
         }
     }
@@ -225,7 +225,7 @@ impl<'a> Field<'a> {
     }
 }
 
-impl<'a> fmt::Display for Field<'a> {
+impl fmt::Display for Field<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         if let Some(ref docs) = self.documentation {
             docs.fmt(f)?;

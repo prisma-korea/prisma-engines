@@ -1,20 +1,21 @@
 mod flavour;
 
 use crate::introspection::{
-    introspection_helpers::{is_new_migration_table, is_old_migration_table, is_prisma_join_table, is_relay_table},
+    introspection_helpers::{
+        is_new_migration_table, is_old_migration_table, is_prisma_m_to_n_relation, is_relay_table,
+    },
     introspection_map::{IntrospectionMap, RelationName},
     introspection_pair::{EnumPair, ModelPair, RelationFieldDirection, ViewPair},
     sanitize_datamodel_names::{EnumVariantName, IntrospectedName, ModelName},
-    version_checker,
 };
 use psl::{
     builtin_connectors::*,
     datamodel_connector::Connector,
-    parser_database::{ast, walkers},
+    parser_database::{self as db, walkers},
     Configuration, PreviewFeature,
 };
 use quaint::prelude::SqlFamily;
-use schema_connector::{IntrospectionContext, Version};
+use schema_connector::IntrospectionContext;
 use sql_schema_describer as sql;
 use std::borrow::Cow;
 
@@ -25,7 +26,6 @@ pub(crate) struct DatamodelCalculatorContext<'a> {
     pub(crate) render_config: bool,
     pub(crate) sql_schema: &'a sql::SqlSchema,
     pub(crate) sql_family: SqlFamily,
-    pub(crate) version: Version,
     pub(crate) previous_schema: &'a psl::ValidatedSchema,
     pub(crate) introspection_map: IntrospectionMap<'a>,
     pub(crate) force_namespaces: Option<&'a [String]>,
@@ -36,14 +36,17 @@ pub(crate) struct DatamodelCalculatorContext<'a> {
 impl<'a> DatamodelCalculatorContext<'a> {
     pub(crate) fn new(ctx: &'a IntrospectionContext, sql_schema: &'a sql::SqlSchema, search_path: &'a str) -> Self {
         let flavour: Box<dyn IntrospectionFlavour> = match ctx.sql_family() {
+            #[cfg(any(feature = "postgresql", feature = "cockroachdb"))]
             SqlFamily::Postgres => Box::new(flavour::PostgresIntrospectionFlavour),
+            #[cfg(feature = "mysql")]
             SqlFamily::Mysql => Box::new(flavour::MysqlIntrospectionFlavour),
+            #[cfg(feature = "sqlite")]
             SqlFamily::Sqlite => Box::new(flavour::SqliteIntrospectionFlavour),
+            #[cfg(feature = "mssql")]
             SqlFamily::Mssql => Box::new(flavour::SqlServerIntrospectionFlavour),
         };
 
         let mut ctx = DatamodelCalculatorContext {
-            version: Version::NonPrisma,
             config: ctx.configuration(),
             render_config: ctx.render_config,
             sql_schema,
@@ -56,7 +59,6 @@ impl<'a> DatamodelCalculatorContext<'a> {
         };
 
         ctx.introspection_map = IntrospectionMap::new(&ctx);
-        ctx.version = version_checker::check_prisma_version(&ctx);
 
         ctx
     }
@@ -110,7 +112,7 @@ impl<'a> DatamodelCalculatorContext<'a> {
             .table_walkers()
             .filter(|table| !is_old_migration_table(*table))
             .filter(|table| !is_new_migration_table(*table))
-            .filter(|table| !is_prisma_join_table(*table))
+            .filter(|table| !is_prisma_m_to_n_relation(*table, self.flavour.uses_pk_in_m2m_join_tables(self)))
             .filter(|table| !is_relay_table(*table))
             .map(move |next| {
                 let previous = self.existing_model(next.id);
@@ -365,11 +367,11 @@ impl<'a> DatamodelCalculatorContext<'a> {
         self.introspection_map.relation_names.m2m_relation_name(id)
     }
 
-    pub(crate) fn table_missing_for_model(&self, id: &ast::ModelId) -> bool {
+    pub(crate) fn table_missing_for_model(&self, id: &db::ModelId) -> bool {
         self.introspection_map.missing_tables_for_previous_models.contains(id)
     }
 
-    pub(crate) fn view_missing_for_model(&self, id: &ast::ModelId) -> bool {
+    pub(crate) fn view_missing_for_model(&self, id: &db::ModelId) -> bool {
         self.introspection_map.missing_views_for_previous_models.contains(id)
     }
 
