@@ -57,10 +57,6 @@ fn display_list<T: Ord>(
 /// the user.
 #[derive(Debug, Default, PartialEq)]
 pub struct Warnings {
-    /// Fields that are using Prisma 1 UUID defaults.
-    pub prisma_1_uuid_defaults: Vec<ModelAndField>,
-    /// Fields that are using Prisma 1 CUID defaults.
-    pub prisma_1_cuid_defaults: Vec<ModelAndField>,
     /// Fields having an empty name.
     pub fields_with_empty_names_in_model: Vec<ModelAndField>,
     /// Fields having an empty name.
@@ -118,6 +114,8 @@ pub struct Warnings {
     pub row_level_ttl: Vec<Model>,
     /// Warn about non-default unique deferring setup
     pub non_default_deferring: Vec<ModelAndConstraint>,
+    /// Warning about Expression Indexes.
+    pub expression_indexes: Vec<ModelAndConstraint>,
     /// Warn about comments
     pub objects_with_comments: Vec<Object>,
     /// Warn about fields which point to an empty type.
@@ -136,6 +134,8 @@ pub struct Warnings {
     pub json_schema_defined: Vec<Model>,
     /// Warning about JSONSchema on a model.
     pub capped_collection: Vec<Model>,
+    /// Warning about broken m2m relations.
+    pub broken_m2m_relations: BTreeSet<(Model, Model)>,
 }
 
 impl Warnings {
@@ -147,11 +147,6 @@ impl Warnings {
     /// True if we have no warnings
     pub fn is_empty(&self) -> bool {
         self == &Self::default()
-    }
-
-    /// True, if the datamodel has Prisma 1 style defaults
-    pub fn uses_prisma_1_defaults(&self) -> bool {
-        !self.prisma_1_uuid_defaults.is_empty() || !self.prisma_1_cuid_defaults.is_empty()
     }
 }
 
@@ -189,18 +184,6 @@ impl fmt::Display for Warnings {
             f.write_str("\n")?;
             fmt::Display::fmt(&GroupBy(items), f)
         }
-
-        render_warnings(
-            "These id fields had a `@default(uuid())` added because we believe the schema was created by Prisma 1:",
-            &self.prisma_1_uuid_defaults,
-            f,
-        )?;
-
-        render_warnings(
-            "These id fields had a `@default(cuid())` added because we believe the schema was created by Prisma 1:",
-            &self.prisma_1_cuid_defaults,
-            f,
-        )?;
 
         render_warnings_grouped(
             "These fields were commented out because their names are currently not supported by Prisma. Please provide valid ones that match [a-zA-Z][a-zA-Z0-9_]* using the `@map` attribute:",
@@ -317,7 +300,7 @@ impl fmt::Display for Warnings {
         )?;
 
         render_warnings(
-            "These items were renamed due to their names being duplicates in the Prisma Schema Language:",
+            "These items were renamed due to their names being duplicates in the Prisma schema:",
             &self.duplicate_names,
             f,
         )?;
@@ -424,15 +407,37 @@ impl fmt::Display for Warnings {
             f
         )?;
 
+        render_warnings(
+            "These indexes are not supported by Prisma Client, because Prisma currently does not fully support expression indexes. Read more: https://pris.ly/d/expression-indexes",
+            &self.expression_indexes,
+            f
+        )?;
+
+        if !self.broken_m2m_relations.is_empty() {
+            for (model_a, model_b) in self.broken_m2m_relations.iter() {
+                write!(
+                    f,
+                    "The many-to-many relation between {model_a} and {model_b} is broken due to the naming of the models. Prisma creates many-to-many relations based on the alphabetical ordering of the names of the models and these two models now produce the reverse of the expected ordering.",
+                )?;
+            }
+        }
+
         Ok(())
     }
 }
 
 /// A model that triggered a warning.
-#[derive(PartialEq, Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Model {
     /// The name of the model
     pub model: String,
+}
+
+impl Model {
+    /// Creates a new model with the given name.
+    pub fn new(model: impl Into<String>) -> Self {
+        Self { model: model.into() }
+    }
 }
 
 impl fmt::Display for Model {

@@ -1,19 +1,18 @@
+use bson::{self, doc};
 use enumflags2::BitFlags;
 use futures::TryStreamExt;
-use mongodb::bson::{self, doc};
 use mongodb_schema_connector::MongoDbSchemaConnector;
-use once_cell::sync::Lazy;
 use psl::{parser_database::SourceFile, PreviewFeature};
 use schema_connector::{ConnectorParams, DiffTarget, SchemaConnector};
 use std::{
     collections::BTreeMap,
     fmt::Write as _,
     io::Write as _,
-    sync::{atomic::AtomicUsize, Arc},
+    sync::{atomic::AtomicUsize, Arc, LazyLock},
 };
 use tokio::sync::OnceCell;
 
-static CONN_STR: Lazy<String> = Lazy::new(|| match std::env::var("TEST_DATABASE_URL") {
+static CONN_STR: LazyLock<String> = LazyLock::new(|| match std::env::var("TEST_DATABASE_URL") {
     Ok(url) => url,
     Err(_) => {
         let stderr = std::io::stderr();
@@ -27,7 +26,7 @@ static CONN_STR: Lazy<String> = Lazy::new(|| match std::env::var("TEST_DATABASE_
     }
 });
 
-static RT: Lazy<tokio::runtime::Runtime> = Lazy::new(|| {
+static RT: LazyLock<tokio::runtime::Runtime> = LazyLock::new(|| {
     tokio::runtime::Builder::new_current_thread()
         .enable_all()
         .build()
@@ -85,7 +84,7 @@ fn new_connector(preview_features: BitFlags<PreviewFeature>) -> (String, MongoDb
 }
 
 async fn get_state(db: &mongodb::Database) -> State {
-    let collection_names = db.list_collection_names(None).await.unwrap();
+    let collection_names = db.list_collection_names().await.unwrap();
     let mut state = State::default();
 
     for collection_name in collection_names {
@@ -93,13 +92,13 @@ async fn get_state(db: &mongodb::Database) -> State {
         let mut documents = Vec::new();
         let mut indexes = Vec::new();
 
-        let mut cursor: mongodb::Cursor<bson::Document> = collection.find(None, None).await.unwrap();
+        let mut cursor: mongodb::Cursor<bson::Document> = collection.find(bson::Document::default()).await.unwrap();
 
         while let Some(doc) = cursor.try_next().await.unwrap() {
             documents.push(doc)
         }
 
-        let mut cursor = collection.list_indexes(None).await.unwrap();
+        let mut cursor = collection.list_indexes().await.unwrap();
 
         while let Some(index) = cursor.try_next().await.unwrap() {
             let options = index.options.unwrap();
@@ -133,17 +132,17 @@ async fn apply_state(db: &mongodb::Database, state: State) {
                 model
             });
 
-            collection.create_indexes(indexes, None).await.unwrap();
+            collection.create_indexes(indexes).await.unwrap();
         }
 
         if !documents.is_empty() {
-            collection.insert_many(documents, None).await.unwrap();
+            collection.insert_many(documents).await.unwrap();
         }
     }
 }
 
 const SCENARIOS_PATH: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/tests/migrations/scenarios");
-static UPDATE_EXPECT: Lazy<bool> = Lazy::new(|| std::env::var("UPDATE_EXPECT").is_ok());
+static UPDATE_EXPECT: LazyLock<bool> = LazyLock::new(|| std::env::var("UPDATE_EXPECT").is_ok());
 
 pub(crate) fn test_scenario(scenario_name: &str) {
     let mut path = String::with_capacity(SCENARIOS_PATH.len() + 12);
@@ -177,7 +176,7 @@ pub(crate) fn test_scenario(scenario_name: &str) {
         let (db_name, mut connector) = new_connector(parsed_schema.configuration.preview_features());
         let client = client().await;
         let db = client.database(&db_name);
-        db.drop(None).await.unwrap();
+        db.drop().await.unwrap();
         apply_state(&db, state).await;
 
         let from = connector
@@ -185,7 +184,11 @@ pub(crate) fn test_scenario(scenario_name: &str) {
             .await
             .unwrap();
         let to = connector
-            .database_schema_from_diff_target(DiffTarget::Datamodel(schema.clone()), None, None)
+            .database_schema_from_diff_target(
+                DiffTarget::Datamodel(vec![("schema.prisma".to_string(), schema.clone())]),
+                None,
+                None,
+            )
             .await
             .unwrap();
         let migration = connector.diff(from, to);
@@ -227,7 +230,11 @@ Snapshot comparison failed. Run the test again with UPDATE_EXPECT=1 in the envir
             .await
             .unwrap();
         let to = connector
-            .database_schema_from_diff_target(DiffTarget::Datamodel(schema), None, None)
+            .database_schema_from_diff_target(
+                DiffTarget::Datamodel(vec![("schema.prisma".to_string(), schema.clone())]),
+                None,
+                None,
+            )
             .await
             .unwrap();
         let migration = connector.diff(from, to);

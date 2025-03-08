@@ -1,7 +1,6 @@
 use super::*;
-use once_cell::sync::Lazy;
-use prisma_models::{walkers, DefaultKind};
-use std::borrow::Cow;
+use query_structure::{walkers, DefaultKind};
+use std::{borrow::Cow, sync::LazyLock};
 
 /// Input object type convenience wrapper function.
 pub(crate) fn input_object_type<'a>(
@@ -52,7 +51,7 @@ where
 {
     OutputField {
         name: name.into(),
-        arguments: Some(Arc::new(Lazy::new(
+        arguments: Some(Arc::new(LazyLock::new(
             Box::new(arguments) as Box<dyn FnOnce() -> Vec<InputField<'a>> + Send + Sync + 'a>
         ))),
         field_type,
@@ -66,7 +65,7 @@ pub(crate) fn simple_input_field<'a>(
     name: impl Into<std::borrow::Cow<'a, str>>,
     field_type: InputType<'a>,
     default_value: Option<DefaultKind>,
-) -> InputField<'_> {
+) -> InputField<'a> {
     input_field(name, vec![field_type], default_value)
 }
 
@@ -81,7 +80,7 @@ pub(crate) fn input_field<'a>(
 
 /// Appends an option of type T to a vector over T if the option is Some.
 pub(crate) fn append_opt<T>(vec: &mut Vec<T>, opt: Option<T>) {
-    vec.extend(opt.into_iter())
+    vec.extend(opt)
 }
 
 /// Computes a compound field name based on an index.

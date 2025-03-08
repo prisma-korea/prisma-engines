@@ -1,12 +1,17 @@
 use crate::{
     context::PrismaContext,
     features::{EnabledFeatures, Feature},
+    logger::Logger,
     opt::{CliOpt, PrismaOpt, Subcommand},
     PrismaResult,
 };
+
+use base64::prelude::*;
+use psl::parser_database::Files;
 use query_core::{protocol::EngineProtocol, schema};
 use request_handlers::{dmmf, RequestBody, RequestHandler};
 use std::{env, sync::Arc};
+use telemetry::{NextId, RequestId};
 
 pub struct ExecuteRequest {
     query: String,
@@ -22,6 +27,7 @@ pub struct DmmfRequest {
 
 pub struct GetConfigRequest {
     config: psl::Configuration,
+    files: Files,
     ignore_env_var_errors: bool,
 }
 
@@ -51,19 +57,22 @@ impl CliCommand {
                     schema: opts.schema(true)?,
                     enable_raw_queries: opts.enable_raw_queries,
                 }))),
-                CliOpt::GetConfig(input) => Ok(Some(CliCommand::GetConfig(GetConfigRequest {
-                    config: opts.configuration(input.ignore_env_var_errors)?,
-                    ignore_env_var_errors: input.ignore_env_var_errors,
-                }))),
+                CliOpt::GetConfig(input) => {
+                    let (files, config) = opts.configuration(input.ignore_env_var_errors)?;
+                    Ok(Some(CliCommand::GetConfig(GetConfigRequest {
+                        config,
+                        files,
+                        ignore_env_var_errors: input.ignore_env_var_errors,
+                    })))
+                }
                 CliOpt::ExecuteRequest(input) => {
                     let schema = opts.schema(false)?;
-                    let features = schema.configuration.preview_features();
 
                     Ok(Some(CliCommand::ExecuteRequest(ExecuteRequest {
                         query: input.query.clone(),
                         enable_raw_queries: opts.enable_raw_queries,
                         schema,
-                        engine_protocol: opts.engine_protocol(features),
+                        engine_protocol: opts.engine_protocol(),
                     })))
                 }
                 CliOpt::DebugPanic(input) => Ok(Some(CliCommand::DebugPanic(DebugPanicRequest {
@@ -103,7 +112,7 @@ impl CliCommand {
 
         config.resolve_datasource_urls_query_engine(&[], |key| env::var(key).ok(), req.ignore_env_var_errors)?;
 
-        let json = psl::get_config::config_to_mcf_json_value(config);
+        let json = psl::get_config::config_to_mcf_json_value(config, &req.files);
         let serialized = serde_json::to_string(&json)?;
 
         println!("{serialized}");
@@ -112,7 +121,7 @@ impl CliCommand {
     }
 
     async fn execute_request(request: ExecuteRequest) -> PrismaResult<()> {
-        let decoded = base64::decode(&request.query)?;
+        let decoded = BASE64_STANDARD.decode(&request.query)?;
         let decoded_request = String::from_utf8(decoded)?;
 
         request
@@ -124,7 +133,15 @@ impl CliCommand {
         if request.enable_raw_queries {
             features |= Feature::RawQueries
         }
-        let cx = PrismaContext::new(request.schema, request.engine_protocol, features, None).await?;
+        let cx = PrismaContext::new(
+            request.schema,
+            request.engine_protocol,
+            features,
+            None,
+            Logger::default().install().unwrap(),
+            RequestId::next(),
+        )
+        .await?;
 
         let cx = Arc::new(cx);
 
@@ -135,7 +152,7 @@ impl CliCommand {
         let res = handler.handle(body, None, None).await;
         let res = serde_json::to_string(&res).unwrap();
 
-        let encoded_response = base64::encode(res);
+        let encoded_response = BASE64_STANDARD.encode(res);
         println!("Response: {encoded_response}"); // reason for prefix is explained in TestServer.scala
 
         Ok(())

@@ -1,4 +1,5 @@
-use crate::value::{Array, Documentation, Env, Text};
+use crate::value::{Array, Documentation, Env, Text, Value};
+use itertools::Itertools;
 use psl::PreviewFeature;
 use std::{borrow::Cow, fmt};
 
@@ -11,7 +12,7 @@ pub struct Generator<'a> {
     preview_features: Option<Array<Text<PreviewFeature>>>,
     binary_targets: Array<Env<'a>>,
     documentation: Option<Documentation<'a>>,
-    config: Vec<(&'a str, Text<&'a str>)>,
+    config: Vec<(&'a str, Value<'a>)>,
 }
 
 impl<'a> Generator<'a> {
@@ -85,8 +86,7 @@ impl<'a> Generator<'a> {
         self.documentation = Some(Documentation(docs.into()));
     }
 
-    /// Add a custom config value to the block. For now we support any
-    /// key/value pairs, and the value must be text.
+    /// Add a custom config value to the block.
     ///
     /// ```ignore
     /// generator js {
@@ -96,8 +96,8 @@ impl<'a> Generator<'a> {
     /// //^^^^^^ key
     /// }
     /// ```
-    pub fn push_config_value(&mut self, key: &'a str, val: &'a str) {
-        self.config.push((key, Text(val)));
+    pub fn push_config_value(&mut self, key: &'a str, val: impl Into<Value<'a>>) {
+        self.config.push((key, val.into()));
     }
 
     /// Create a rendering from a PSL generator.
@@ -109,11 +109,7 @@ impl<'a> Generator<'a> {
 
         let binary_targets: Vec<Env<'_>> = psl_gen.binary_targets.iter().map(Env::from).collect();
 
-        let config = psl_gen
-            .config
-            .iter()
-            .map(|(k, v)| (k.as_str(), Text(v.as_str())))
-            .collect();
+        let config = psl_gen.config.iter().map(|(k, v)| (k.as_str(), v.into())).collect();
 
         Self {
             name: &psl_gen.name,
@@ -127,7 +123,7 @@ impl<'a> Generator<'a> {
     }
 }
 
-impl<'a> fmt::Display for Generator<'a> {
+impl fmt::Display for Generator<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         if let Some(ref doc) = self.documentation {
             doc.fmt(f)?;
@@ -148,7 +144,7 @@ impl<'a> fmt::Display for Generator<'a> {
             writeln!(f, "binaryTargets = {}", self.binary_targets)?;
         }
 
-        for (k, v) in self.config.iter() {
+        for (k, v) in self.config.iter().sorted_by_key(|(k, _)| k) {
             writeln!(f, "{k} = {v}")?;
         }
 
@@ -179,6 +175,20 @@ mod tests {
         generator.push_config_value("customValue", "meow");
         generator.push_config_value("otherValue", "purr");
 
+        generator.push_config_value("customFeatures", vec![Value::from("enums"), Value::from("models")]);
+        generator.push_config_value(
+            "afterGenerate",
+            vec![
+                Value::from("lambda"),
+                Vec::<Value>::new().into(),
+                vec![
+                    Value::from("print"),
+                    vec![Value::from("quote"), Value::from("done!")].into(),
+                ]
+                .into(),
+            ],
+        );
+
         let expected = expect![[r#"
             /// Here comes the sun.
             ///
@@ -189,6 +199,8 @@ mod tests {
               output          = "/dev/null"
               previewFeatures = ["multiSchema", "postgresqlExtensions"]
               binaryTargets   = [env("BINARY TARGET")]
+              afterGenerate   = ["lambda", [], ["print", ["quote", "done!"]]]
+              customFeatures  = ["enums", "models"]
               customValue     = "meow"
               otherValue      = "purr"
             }
@@ -196,5 +208,29 @@ mod tests {
 
         let rendered = psl::reformat(&format!("{generator}"), 2).unwrap();
         expected.assert_eq(&rendered)
+    }
+
+    #[test]
+    fn creates_consistent_ordering() {
+        let mut generator1 = Generator::new("client", Env::value("prisma-client-js"));
+        generator1.push_config_value("first", "A");
+        generator1.push_config_value("second", "B");
+        let rendered1 = psl::reformat(&format!("{generator1}"), 2).unwrap();
+
+        let mut generator2 = Generator::new("client", Env::value("prisma-client-js"));
+        generator2.push_config_value("second", "B");
+        generator2.push_config_value("first", "A");
+        let rendered2 = psl::reformat(&format!("{generator2}"), 2).unwrap();
+
+        let expected = expect![[r#"
+            generator client {
+              provider = "prisma-client-js"
+              first    = "A"
+              second   = "B"
+            }
+        "#]];
+
+        expected.assert_eq(&rendered1);
+        expected.assert_eq(&rendered2)
     }
 }

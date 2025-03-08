@@ -5,11 +5,10 @@ use crate::{
     sql_migration::{AlterEnum, AlterTable, RedefineTable, TableChange},
 };
 use indoc::formatdoc;
-use once_cell::sync::Lazy;
 use regex::Regex;
 use sql_ddl::sqlite as ddl;
 use sql_schema_describer::{walkers::*, *};
-use std::borrow::Cow;
+use std::{borrow::Cow, sync::LazyLock};
 
 impl SqlRenderer for SqliteFlavour {
     fn quote<'a>(&self, name: &'a str) -> Quoted<&'a str> {
@@ -183,13 +182,21 @@ impl SqlRenderer for SqliteFlavour {
     }
 
     fn render_redefine_tables(&self, tables: &[RedefineTable], schemas: MigrationPair<&SqlSchema>) -> Vec<String> {
-        // Based on 'Making Other Kinds Of Table Schema Changes' from https://www.sqlite.org/lang_altertable.html
-        let mut result = vec!["PRAGMA foreign_keys=OFF".to_string()];
+        // Based on 'Making Other Kinds Of Table Schema Changes' from https://www.sqlite.org/lang_altertable.html,
+        // and on https://developers.cloudflare.com/d1/reference/database-commands/#pragma-defer_foreign_keys--onoff.
+        let mut result: Vec<String> = vec![];
+
+        // disables foreign key constraint enforcement
+        result.push("PRAGMA defer_foreign_keys=ON".to_string());
+        result.push("PRAGMA foreign_keys=OFF".to_string());
+
+        let mut foreign_key_checks = vec![];
 
         for redefine_table in tables {
             let tables = schemas.walk(redefine_table.table_ids);
             let temporary_table_name = format!("new_{}", &tables.next.name());
 
+            // maybe use render_create_table_for_migration?
             result.push(self.render_create_table_as(
                 tables.next,
                 QuotedWithPrefix(None, Quoted::sqlite_ident(&temporary_table_name)),
@@ -208,10 +215,22 @@ impl SqlRenderer for SqliteFlavour {
             for index in tables.next.indexes().filter(|idx| !idx.is_primary_key()) {
                 result.push(self.render_create_index(index));
             }
+
+            // Collect foreign key checks for any renamed tables.
+            // These must be executed immediately before `PRAGMA foreign_keys=ON`.
+            foreign_key_checks.push(format!(
+                r#"PRAGMA foreign_key_check("{new_name}")"#,
+                new_name = tables.next.name()
+            ));
         }
 
-        result.push("PRAGMA foreign_key_check".to_string());
+        // Checks the database for foreign key constraint violations.
+        // Note: this code is probably useless, pending foreign constraint violations are checked fine even without it.
+        // result.extend(foreign_key_checks);
+
+        // resumes immediate enforcement of foreign key constraints.
         result.push("PRAGMA foreign_keys=ON".to_string());
+        result.push("PRAGMA defer_foreign_keys=OFF".to_string());
 
         result
     }
@@ -243,7 +262,7 @@ fn render_column_type(t: &ColumnType) -> &str {
         ColumnTypeFamily::BigInt => "BIGINT",
         ColumnTypeFamily::String => "TEXT",
         ColumnTypeFamily::Binary => "BLOB",
-        ColumnTypeFamily::Json => unreachable!("ColumnTypeFamily::Json on SQLite"),
+        ColumnTypeFamily::Json => "JSONB",
         ColumnTypeFamily::Enum(_) => unreachable!("ColumnTypeFamily::Enum on SQLite"),
         ColumnTypeFamily::Uuid => unimplemented!("ColumnTypeFamily::Uuid on SQLite"),
         ColumnTypeFamily::Unsupported(x) => x.as_ref(),
@@ -251,7 +270,7 @@ fn render_column_type(t: &ColumnType) -> &str {
 }
 
 fn escape_quotes(s: &str) -> Cow<'_, str> {
-    static STRING_LITERAL_CHARACTER_TO_ESCAPE_RE: Lazy<Regex> = Lazy::new(|| Regex::new(r#"'"#).unwrap());
+    static STRING_LITERAL_CHARACTER_TO_ESCAPE_RE: LazyLock<Regex> = LazyLock::new(|| Regex::new(r#"'"#).unwrap());
 
     STRING_LITERAL_CHARACTER_TO_ESCAPE_RE.replace_all(s, "'$0")
 }

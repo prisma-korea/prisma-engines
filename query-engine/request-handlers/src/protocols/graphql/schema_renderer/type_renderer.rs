@@ -6,7 +6,7 @@ pub enum GqlTypeRenderer<'a> {
     Output(OutputType<'a>),
 }
 
-impl<'a> Renderer for GqlTypeRenderer<'a> {
+impl Renderer for GqlTypeRenderer<'_> {
     fn render(&self, ctx: &mut RenderContext) -> String {
         match self {
             GqlTypeRenderer::Input(i) => self.render_input_type(i, ctx),
@@ -47,6 +47,7 @@ impl<'a> GqlTypeRenderer<'a> {
                     ScalarType::UUID => "UUID",
                     ScalarType::JsonList => "Json",
                     ScalarType::Bytes => "Bytes",
+                    ScalarType::Param => "Param",
                     ScalarType::Null => unreachable!("Null types should not be picked for GQL rendering."),
                 };
 
@@ -86,6 +87,7 @@ impl<'a> GqlTypeRenderer<'a> {
                     ScalarType::JsonList => "Json",
                     ScalarType::Bytes => "Bytes",
                     ScalarType::Null => unreachable!("Null types should not be picked for GQL rendering."),
+                    ScalarType::Param => unreachable!("output type must not be Param"),
                 };
 
                 stringified.to_string()

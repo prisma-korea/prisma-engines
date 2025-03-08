@@ -1,3 +1,5 @@
+use std::sync::LazyLock;
+
 use super::{
     constraint_namespace::ConstraintName,
     database_name::validate_db_name,
@@ -21,7 +23,7 @@ pub(super) fn validate_client_name(field: FieldWalker<'_>, names: &Names<'_>, ct
         "model"
     };
 
-    for taken in names.name_taken(model.model_id(), field.name()).into_iter() {
+    for taken in names.name_taken(model.id, field.name()).into_iter() {
         match taken {
             NameTaken::Index => {
                 let message = format!(
@@ -82,7 +84,7 @@ pub(super) fn has_a_unique_default_constraint_name(
     };
 
     for violation in names.constraint_namespace.constraint_name_scope_violations(
-        field.model().model_id(),
+        field.model().id,
         ConstraintName::Default(name.as_ref()),
         ctx,
     ) {
@@ -109,10 +111,7 @@ pub(crate) fn validate_length_used_with_correct_types(
     attribute: (&str, ast::Span),
     ctx: &mut Context<'_>,
 ) {
-    if !ctx
-        .connector
-        .has_capability(ConnectorCapability::IndexColumnLengthPrefixing)
-    {
+    if !ctx.has_capability(ConnectorCapability::IndexColumnLengthPrefixing) {
         return;
     }
 
@@ -226,7 +225,7 @@ pub(super) fn validate_default_value(field: ScalarFieldWalker<'_>, ctx: &mut Con
     let default_attribute = field.default_attribute();
 
     // Named defaults.
-    if default_mapped_name.is_some() && !ctx.connector.supports_named_default_values() {
+    if default_mapped_name.is_some() && !ctx.has_capability(ConnectorCapability::NamedDefaultValues) {
         let msg = "You defined a database name for the default value of a field on the model. This is not supported by the provider.";
 
         ctx.push_error(DatamodelError::new_attribute_validation_error(
@@ -256,7 +255,7 @@ pub(super) fn validate_scalar_field_connector_specific(field: ScalarFieldWalker<
 
     match field.scalar_field_type() {
         ScalarFieldType::BuiltInScalar(ScalarType::Json) => {
-            if !ctx.connector.supports_json() {
+            if !ctx.has_capability(ConnectorCapability::Json) {
                 ctx.push_error(DatamodelError::new_field_validation_error(
                     &format!(
                         "Field `{}` in {container} `{}` can't be of type Json. The current connector does not support the Json type.",
@@ -270,7 +269,7 @@ pub(super) fn validate_scalar_field_connector_specific(field: ScalarFieldWalker<
                 ));
             }
 
-            if field.ast_field().arity.is_list() && !ctx.connector.supports_json_lists() {
+            if field.ast_field().arity.is_list() && !ctx.has_capability(ConnectorCapability::JsonLists) {
                 ctx.push_error(DatamodelError::new_field_validation_error(
                     &format!(
                         "Field `{}` in {container} `{}` can't be of type Json[]. The current connector does not support the Json List type.",
@@ -286,7 +285,7 @@ pub(super) fn validate_scalar_field_connector_specific(field: ScalarFieldWalker<
         }
 
         ScalarFieldType::BuiltInScalar(ScalarType::Decimal) => {
-            if !ctx.connector.supports_decimal() {
+            if !ctx.has_capability(ConnectorCapability::DecimalType) {
                 ctx.push_error(DatamodelError::new_field_validation_error(
                     &format!(
                         "Field `{}` in {container} `{}` can't be of type Decimal. The current connector does not support the Decimal type.",
@@ -304,7 +303,7 @@ pub(super) fn validate_scalar_field_connector_specific(field: ScalarFieldWalker<
         _ => (),
     }
 
-    if field.ast_field().arity.is_list() && !ctx.connector.supports_scalar_lists() {
+    if field.ast_field().arity.is_list() && !ctx.has_capability(ConnectorCapability::ScalarLists) {
         ctx.push_error(DatamodelError::new_scalar_list_fields_are_not_supported(
             if field.model().ast_model().is_view() {
                 "view"
@@ -319,19 +318,18 @@ pub(super) fn validate_scalar_field_connector_specific(field: ScalarFieldWalker<
 }
 
 pub(super) fn validate_unsupported_field_type(field: ScalarFieldWalker<'_>, ctx: &mut Context<'_>) {
-    use once_cell::sync::Lazy;
     use regex::Regex;
 
     let source = if let Some(s) = ctx.datasource { s } else { return };
 
-    static TYPE_REGEX: Lazy<Regex> = Lazy::new(|| {
-        Regex::new(r#"(?x)
+    static TYPE_REGEX: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(r"(?x)
     ^                           # beginning of the string
     (?P<prefix>[^(]+)           # a required prefix that is any character until the first opening brace
     (?:\((?P<params>.*?)\))?    # (optional) an opening parenthesis, a closing parenthesis and captured params in-between
     (?P<suffix>.+)?             # (optional) captured suffix after the params until the end of the string
     $                           # end of the string
-    "#).unwrap()
+    ").unwrap()
     });
 
     let connector = source.active_connector;
@@ -366,7 +364,7 @@ pub(super) fn validate_unsupported_field_type(field: ScalarFieldWalker<'_>, ctx:
 }
 
 pub(crate) fn id_supports_clustering_setting(pk: PrimaryKeyWalker<'_>, ctx: &mut Context<'_>) {
-    if ctx.connector.has_capability(ConnectorCapability::ClusteringSetting) {
+    if ctx.has_capability(ConnectorCapability::ClusteringSetting) {
         return;
     }
 
@@ -385,7 +383,7 @@ pub(crate) fn id_supports_clustering_setting(pk: PrimaryKeyWalker<'_>, ctx: &mut
 ///
 /// Here we check the primary key. Another check in index validations.
 pub(crate) fn clustering_can_be_defined_only_once(pk: PrimaryKeyWalker<'_>, ctx: &mut Context<'_>) {
-    if !ctx.connector.has_capability(ConnectorCapability::ClusteringSetting) {
+    if !ctx.has_capability(ConnectorCapability::ClusteringSetting) {
         return;
     }
 

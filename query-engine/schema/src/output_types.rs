@@ -1,8 +1,7 @@
 use super::*;
 use fmt::Debug;
-use once_cell::sync::Lazy;
-use prisma_models::ast::ModelId;
-use std::{borrow::Cow, fmt};
+use psl::parser_database as db;
+use std::{borrow::Cow, fmt, sync::LazyLock};
 
 #[derive(Debug, Clone)]
 pub struct OutputType<'a> {
@@ -112,7 +111,7 @@ impl<'a> OutputType<'a> {
 }
 
 type OutputObjectFields<'a> =
-    Arc<Lazy<Vec<OutputField<'a>>, Box<dyn FnOnce() -> Vec<OutputField<'a>> + Send + Sync + 'a>>>;
+    Arc<LazyLock<Vec<OutputField<'a>>, Box<dyn FnOnce() -> Vec<OutputField<'a>> + Send + Sync + 'a>>>;
 
 #[derive(Clone)]
 pub struct ObjectType<'a> {
@@ -120,8 +119,7 @@ pub struct ObjectType<'a> {
     pub(crate) fields: OutputObjectFields<'a>,
 
     // Object types can directly map to models.
-    pub(crate) model: Option<ModelId>,
-    _heh: (),
+    pub(crate) model: Option<db::ModelId>,
 }
 
 impl Debug for ObjectType<'_> {
@@ -138,14 +136,13 @@ impl<'a> ObjectType<'a> {
         identifier: Identifier,
         fields: impl FnOnce() -> Vec<OutputField<'a>> + Send + Sync + 'a,
     ) -> Self {
-        let lazy = Lazy::<Vec<OutputField<'_>>, _>::new(
+        let lazy = LazyLock::<Vec<OutputField<'_>>, _>::new(
             Box::new(fields) as Box<dyn FnOnce() -> Vec<OutputField<'a>> + Send + Sync + 'a>
         );
         ObjectType {
             identifier,
             fields: Arc::new(lazy),
             model: None,
-            _heh: (),
         }
     }
 
@@ -167,7 +164,7 @@ impl<'a> ObjectType<'a> {
 }
 
 type OutputFieldArguments<'a> =
-    Option<Arc<Lazy<Vec<InputField<'a>>, Box<dyn FnOnce() -> Vec<InputField<'a>> + Send + Sync + 'a>>>>;
+    Option<Arc<LazyLock<Vec<InputField<'a>>, Box<dyn FnOnce() -> Vec<InputField<'a>> + Send + Sync + 'a>>>>;
 
 #[derive(Clone)]
 pub struct OutputField<'a> {
@@ -198,8 +195,8 @@ impl<'a> OutputField<'a> {
         &self.name
     }
 
-    pub fn arguments(&self) -> impl Iterator<Item = &InputField<'a>> + '_ {
-        self.arguments.as_ref().into_iter().flat_map(|args| args.iter())
+    pub fn arguments(&self) -> &[InputField<'a>] {
+        self.arguments.as_ref().map(|f| (**f).as_slice()).unwrap_or(&[])
     }
 
     pub(crate) fn nullable(mut self) -> Self {
@@ -215,7 +212,7 @@ impl<'a> OutputField<'a> {
         }
     }
 
-    pub fn model(&self) -> Option<ModelId> {
+    pub fn model(&self) -> Option<db::ModelId> {
         self.query_info.as_ref().and_then(|info| info.model)
     }
 

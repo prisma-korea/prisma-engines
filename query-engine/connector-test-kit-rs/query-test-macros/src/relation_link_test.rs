@@ -1,14 +1,17 @@
 use super::*;
-use darling::FromMeta;
+use darling::{ast::NestedMeta, FromMeta};
 use proc_macro::TokenStream;
 use proc_macro2::{Ident, Span};
 use quote::quote;
-use syn::{parse_macro_input, AttributeArgs, ItemFn};
+use syn::{parse_macro_input, ItemFn};
 
 pub fn relation_link_test_impl(attr: TokenStream, input: TokenStream) -> TokenStream {
-    let attributes_meta: syn::AttributeArgs = parse_macro_input!(attr as AttributeArgs);
-    let args = RelationLinkTestArgs::from_list(&attributes_meta);
-    let args = match args {
+    let attributes_meta = match NestedMeta::parse_meta_list(attr.into()) {
+        Ok(meta) => meta,
+        Err(err) => return err.into_compile_error().into(),
+    };
+
+    let args = match RelationLinkTestArgs::from_list(&attributes_meta) {
         Ok(args) => args,
         Err(err) => return err.write_errors().into(),
     };
@@ -41,6 +44,7 @@ pub fn relation_link_test_impl(attr: TokenStream, input: TokenStream) -> TokenSt
 
     // The shell function retains the name of the original test definition.
     let test_fn_ident = test_function.sig.ident;
+    let test_fn_ident_string = test_fn_ident.to_string();
 
     // Rename original test function to run_<orig_name>.
     let runner_fn_ident = Ident::new(&format!("run_{test_fn_ident}"), Span::call_site());
@@ -63,7 +67,8 @@ pub fn relation_link_test_impl(attr: TokenStream, input: TokenStream) -> TokenSt
                 &[#exclude],
                 enumflags2::make_bitflags!(ConnectorCapability::{#(#required_capabilities)|*}),
                 (#suite_name, #test_name),
-                #runner_fn_ident
+                #runner_fn_ident,
+                #test_fn_ident_string
             )
         }
 

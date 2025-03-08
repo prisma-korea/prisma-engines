@@ -1,14 +1,17 @@
 use super::*;
-use darling::FromMeta;
+use darling::{ast::NestedMeta, FromMeta};
 use proc_macro::TokenStream;
 use proc_macro2::{Ident, Span};
 use quote::quote;
-use syn::{parse_macro_input, AttributeArgs, ItemFn};
+use syn::{parse_macro_input, ItemFn};
 
 pub fn connector_test_impl(attr: TokenStream, input: TokenStream) -> TokenStream {
-    let attributes_meta: syn::AttributeArgs = parse_macro_input!(attr as AttributeArgs);
-    let args = ConnectorTestArgs::from_list(&attributes_meta);
-    let args = match args {
+    let attributes_meta = match NestedMeta::parse_meta_list(attr.into()) {
+        Ok(meta) => meta,
+        Err(err) => return err.into_compile_error().into(),
+    };
+
+    let args = match ConnectorTestArgs::from_list(&attributes_meta) {
         Ok(args) => args,
         Err(err) => return err.write_errors().into(),
     };
@@ -19,6 +22,7 @@ pub fn connector_test_impl(attr: TokenStream, input: TokenStream) -> TokenStream
 
     let excluded_features = args.exclude_features.features();
     let db_schemas = args.db_schemas.schemas();
+    let db_extensions = args.db_extensions.extensions();
     let only = &args.only;
     let exclude = &args.exclude;
     let handler = args.schema.unwrap().handler_path;
@@ -42,6 +46,7 @@ pub fn connector_test_impl(attr: TokenStream, input: TokenStream) -> TokenStream
 
     // The shell function retains the name of the original test definition.
     let test_fn_ident = test_function.sig.ident;
+    let test_fn_ident_string = test_fn_ident.to_string();
 
     // Rename original test function to run_<orig_name>.
     let runner_fn_ident = Ident::new(&format!("run_{test_fn_ident}"), Span::call_site());
@@ -75,8 +80,10 @@ pub fn connector_test_impl(attr: TokenStream, input: TokenStream) -> TokenStream
                 &[#(#excluded_features),*],
                 #handler,
                 &[#(#db_schemas),*],
+                &[#(#db_extensions),*],
                 #referential_override,
                 #runner_fn_ident,
+                #test_fn_ident_string
             );
         }
 

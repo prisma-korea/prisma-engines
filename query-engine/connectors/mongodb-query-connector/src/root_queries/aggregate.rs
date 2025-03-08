@@ -2,9 +2,9 @@ use crate::{constants::*, output_meta, query_builder::MongoReadQueryBuilder, val
 
 use connector_interface::*;
 use mongodb::{bson::Document, ClientSession, Database};
-use prisma_models::prelude::*;
+use query_structure::{prelude::*, AggregationSelection, Filter, QueryArguments};
 
-pub async fn aggregate<'conn>(
+pub async fn aggregate(
     database: &Database,
     session: &mut ClientSession,
     model: &Model,
@@ -108,7 +108,7 @@ fn to_aggregation_rows(
 
                     for field in fields {
                         let meta = selection_meta.get(field.db_name()).unwrap();
-                        let bson = doc.remove(&format!("count_{}", field.db_name())).unwrap();
+                        let bson = doc.remove(format!("count_{}", field.db_name())).unwrap();
                         let field_val = value_from_bson(bson, meta)?;
 
                         row.push(AggregationResult::Count(Some(field.clone()), field_val));
@@ -117,7 +117,7 @@ fn to_aggregation_rows(
                 AggregationSelection::Average(fields) => {
                     for field in fields {
                         let meta = selection_meta.get(field.db_name()).unwrap();
-                        let bson = doc.remove(&format!("avg_{}", field.db_name())).unwrap();
+                        let bson = doc.remove(format!("avg_{}", field.db_name())).unwrap();
                         let field_val = value_from_bson(bson, meta)?;
 
                         row.push(AggregationResult::Average(field.clone(), field_val));
@@ -126,7 +126,7 @@ fn to_aggregation_rows(
                 AggregationSelection::Sum(fields) => {
                     for field in fields {
                         let meta = selection_meta.get(field.db_name()).unwrap();
-                        let bson = doc.remove(&format!("sum_{}", field.db_name())).unwrap();
+                        let bson = doc.remove(format!("sum_{}", field.db_name())).unwrap();
                         let field_val = value_from_bson(bson, meta)?;
 
                         row.push(AggregationResult::Sum(field.clone(), field_val));
@@ -135,7 +135,7 @@ fn to_aggregation_rows(
                 AggregationSelection::Min(fields) => {
                     for field in fields {
                         let meta = selection_meta.get(field.db_name()).unwrap();
-                        let bson = doc.remove(&format!("min_{}", field.db_name())).unwrap();
+                        let bson = doc.remove(format!("min_{}", field.db_name())).unwrap();
                         let field_val = value_from_bson(bson, meta)?;
 
                         row.push(AggregationResult::Min(field.clone(), field_val));
@@ -144,7 +144,7 @@ fn to_aggregation_rows(
                 AggregationSelection::Max(fields) => {
                     for field in fields {
                         let meta = selection_meta.get(field.db_name()).unwrap();
-                        let bson = doc.remove(&format!("max_{}", field.db_name())).unwrap();
+                        let bson = doc.remove(format!("max_{}", field.db_name())).unwrap();
                         let field_val = value_from_bson(bson, meta)?;
 
                         row.push(AggregationResult::Max(field.clone(), field_val));

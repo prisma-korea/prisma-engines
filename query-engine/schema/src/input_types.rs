@@ -1,11 +1,10 @@
 use super::*;
 use fmt::Debug;
-use once_cell::sync::Lazy;
-use prisma_models::{prelude::ParentContainer, DefaultKind};
-use std::{borrow::Cow, boxed::Box, fmt};
+use query_structure::{prelude::ParentContainer, DefaultKind};
+use std::{borrow::Cow, boxed::Box, fmt, sync::LazyLock};
 
 type InputObjectFields<'a> =
-    Option<Arc<Lazy<Vec<InputField<'a>>, Box<dyn FnOnce() -> Vec<InputField<'a>> + Send + Sync + 'a>>>>;
+    Option<Arc<LazyLock<Vec<InputField<'a>>, Box<dyn FnOnce() -> Vec<InputField<'a>> + Send + Sync + 'a>>>>;
 
 #[derive(Clone)]
 pub struct InputObjectType<'a> {
@@ -16,6 +15,7 @@ pub struct InputObjectType<'a> {
 }
 
 impl PartialEq for InputObjectType<'_> {
+    #[allow(unconditional_recursion)]
     fn eq(&self, other: &Self) -> bool {
         self.identifier.eq(&other.identifier)
     }
@@ -62,7 +62,7 @@ impl<'a> InputObjectType<'a> {
     }
 
     pub(crate) fn set_fields(&mut self, f: impl FnOnce() -> Vec<InputField<'a>> + Send + Sync + 'a) {
-        self.fields = Some(Arc::new(Lazy::new(Box::new(f))));
+        self.fields = Some(Arc::new(LazyLock::new(Box::new(f))));
     }
 
     pub fn tag(&self) -> Option<&ObjectTag<'a>> {
@@ -194,7 +194,7 @@ pub enum InputType<'a> {
     Object(InputObjectType<'a>),
 }
 
-impl<'a> PartialEq for InputType<'a> {
+impl PartialEq for InputType<'_> {
     fn eq(&self, other: &Self) -> bool {
         match (self, other) {
             (InputType::Scalar(st), InputType::Scalar(ost)) => st.eq(ost),
@@ -206,7 +206,7 @@ impl<'a> PartialEq for InputType<'a> {
     }
 }
 
-impl<'a> Debug for InputType<'a> {
+impl Debug for InputType<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::Object(obj) => write!(f, "Object({obj:?})"),

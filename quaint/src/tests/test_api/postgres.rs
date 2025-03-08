@@ -1,12 +1,11 @@
 use super::TestApi;
 use crate::{connector::Queryable, single::Quaint};
 use names::Generator;
-use once_cell::sync::Lazy;
-use std::env;
-use test_setup::Tags;
+use quaint_test_setup::Tags;
+use std::{env, sync::LazyLock};
 
-pub static CONN_STR: Lazy<String> = Lazy::new(|| env::var("TEST_PSQL").expect("TEST_PSQL env var"));
-pub static CRDB_CONN_STR: Lazy<String> = Lazy::new(|| env::var("TEST_CRDB").expect("TEST_CRDB env var"));
+pub static CONN_STR: LazyLock<String> = LazyLock::new(|| env::var("TEST_PSQL").expect("TEST_PSQL env var"));
+pub static CRDB_CONN_STR: LazyLock<String> = LazyLock::new(|| env::var("TEST_CRDB").expect("TEST_CRDB env var"));
 
 pub(crate) async fn postgresql_test_api<'a>() -> crate::Result<PostgreSql<'a>> {
     PostgreSql::new().await
@@ -27,7 +26,7 @@ impl<'a> PostgreSql<'a> {
 }
 
 #[async_trait::async_trait]
-impl<'a> TestApi for PostgreSql<'a> {
+impl TestApi for PostgreSql<'_> {
     fn system(&self) -> &'static str {
         "postgres"
     }
@@ -87,6 +86,10 @@ impl<'a> TestApi for PostgreSql<'a> {
         Quaint::new(&CONN_STR).await
     }
 
+    fn create_pool(&self) -> crate::Result<crate::pooled::Quaint> {
+        Ok(crate::pooled::Quaint::builder(&CONN_STR)?.build())
+    }
+
     fn unique_constraint(&mut self, column: &str) -> String {
         format!("UNIQUE({column})")
     }
@@ -108,7 +111,7 @@ impl<'a> TestApi for PostgreSql<'a> {
         self.names.next().unwrap().replace('-', "")
     }
 
-    fn connector_tag(&self) -> test_setup::Tags {
+    fn connector_tag(&self) -> quaint_test_setup::Tags {
         Tags::POSTGRES
     }
 }

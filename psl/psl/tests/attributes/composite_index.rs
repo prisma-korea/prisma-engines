@@ -81,7 +81,7 @@ fn simple_composite_fulltext() {
         }
     "#};
 
-    psl::parse_schema(with_header(schema, crate::Provider::Mongo, &["fullTextIndex"]))
+    psl::parse_schema(with_header(schema, crate::Provider::Mongo, &[]))
         .unwrap()
         .assert_has_model("B")
         .assert_fulltext_on_fields(&["field"]);
@@ -171,7 +171,7 @@ fn reformat() {
         }
     "#};
 
-    let datamodel = with_header(schema, crate::Provider::Mongo, &["fullTextIndex"]);
+    let datamodel = with_header(schema, crate::Provider::Mongo, &[]);
     let result = psl::reformat(&datamodel, 2).unwrap_or_else(|| datamodel.to_owned());
 
     let expected = expect![[r#"
@@ -181,8 +181,7 @@ fn reformat() {
         }
 
         generator client {
-          provider        = "prisma-client-js"
-          previewFeatures = ["fullTextIndex"]
+          provider = "prisma-client-js"
         }
 
         type A {
@@ -527,11 +526,17 @@ fn pointing_to_a_non_existing_type() {
     let error = parse_unwrap_err(&dml);
 
     let expected = expect![[r#"
-        [1;91merror[0m: [1mType "C" is neither a built-in type, nor refers to another model, custom type, or enum.[0m
+        [1;91merror[0m: [1mType "C" is neither a built-in type, nor refers to another model, composite type, or enum.[0m
           [1;94m-->[0m  [4mschema.prisma:17[0m
         [1;94m   | [0m
         [1;94m16 | [0m  id Int @id @map("_id")
         [1;94m17 | [0m  a  [1;91mC[0m
+        [1;94m   | [0m
+        [1;91merror[0m: [1mError validating model "B": The index definition refers to the relation fields a. Index definitions must reference only scalar fields.[0m
+          [1;94m-->[0m  [4mschema.prisma:19[0m
+        [1;94m   | [0m
+        [1;94m18 | [0m
+        [1;94m19 | [0m  [1;91m@@index([a.field])[0m
         [1;94m   | [0m
     "#]];
 

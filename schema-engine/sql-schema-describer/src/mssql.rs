@@ -9,7 +9,6 @@ use either::Either;
 use enumflags2::BitFlags;
 use indexmap::IndexMap;
 use indoc::indoc;
-use once_cell::sync::Lazy;
 use prisma_value::PrismaValue;
 use psl::{
     builtin_connectors::{MsSqlType, MsSqlTypeParameter},
@@ -17,7 +16,7 @@ use psl::{
 };
 use quaint::prelude::Queryable;
 use regex::Regex;
-use std::{any::type_name, borrow::Cow, collections::HashMap, convert::TryInto};
+use std::{any::type_name, borrow::Cow, collections::HashMap, convert::TryInto, sync::LazyLock};
 
 /// Matches a default value in the schema, that is not a string.
 ///
@@ -34,7 +33,7 @@ use std::{any::type_name, borrow::Cow, collections::HashMap, convert::TryInto};
 /// ```ignore
 /// ((true))
 /// ```
-static DEFAULT_NON_STRING: Lazy<Regex> = Lazy::new(|| Regex::new(r"\(\((.*)\)\)").unwrap());
+static DEFAULT_NON_STRING: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"\(\((.*)\)\)").unwrap());
 
 /// Matches a default value in the schema, that is a string.
 ///
@@ -43,7 +42,7 @@ static DEFAULT_NON_STRING: Lazy<Regex> = Lazy::new(|| Regex::new(r"\(\((.*)\)\)"
 /// ```ignore
 /// ('this is a test')
 /// ```
-static DEFAULT_STRING: Lazy<Regex> = Lazy::new(|| Regex::new(r"\('([\S\s]*)'\)").unwrap());
+static DEFAULT_STRING: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"\('([\S\s]*)'\)").unwrap());
 
 /// Matches a database-generated value in the schema.
 ///
@@ -52,7 +51,7 @@ static DEFAULT_STRING: Lazy<Regex> = Lazy::new(|| Regex::new(r"\('([\S\s]*)'\)")
 /// ```ignore
 /// (current_timestamp)
 /// ```
-static DEFAULT_DB_GEN: Lazy<Regex> = Lazy::new(|| Regex::new(r"\((.*)\)").unwrap());
+static DEFAULT_DB_GEN: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"\((.*)\)").unwrap());
 
 /// Matches a shared default constraint (which we will skip).
 ///
@@ -61,7 +60,7 @@ static DEFAULT_DB_GEN: Lazy<Regex> = Lazy::new(|| Regex::new(r"\((.*)\)").unwrap
 /// ```ignore
 /// CREATE DEFAULT catcat AS 'musti';
 /// ```
-static DEFAULT_SHARED_CONSTRAINT: Lazy<Regex> = Lazy::new(|| Regex::new(r"^CREATE DEFAULT (.*)").unwrap());
+static DEFAULT_SHARED_CONSTRAINT: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"CREATE DEFAULT (.*)").unwrap());
 
 pub struct SqlSchemaDescriber<'a> {
     conn: &'a dyn Queryable,
@@ -640,7 +639,7 @@ impl<'a> SqlSchemaDescriber<'a> {
                 let definition = row
                     .get_string("system_type_name")
                     .map(|name| match (max_length, precision, scale) {
-                        (Some(len), _, _) if len == -1 => format!("{name}(max)"),
+                        (Some(-1), _, _) => format!("{name}(max)"),
                         (Some(len), _, _) => format!("{name}({len})"),
                         (_, Some(p), Some(s)) => format!("{name}({p},{s})"),
                         _ => name,

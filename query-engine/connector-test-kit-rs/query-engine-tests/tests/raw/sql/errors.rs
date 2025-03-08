@@ -1,7 +1,7 @@
 use indoc::indoc;
 use query_engine_tests::*;
 
-#[test_suite(schema(schema), only(Postgres))]
+#[test_suite(schema(schema))]
 mod raw_errors {
     fn schema() -> String {
         let schema = indoc! {
@@ -14,7 +14,7 @@ mod raw_errors {
         schema.to_owned()
     }
 
-    #[connector_test]
+    #[connector_test(only(Postgres))]
     async fn unsupported_columns(runner: Runner) -> TestResult<()> {
         run_query!(
             &runner,
@@ -34,8 +34,33 @@ mod raw_errors {
         Ok(())
     }
 
-    #[connector_test(schema(common_nullable_types))]
-    async fn list_param_for_scalar_column_should_not_panic(runner: Runner) -> TestResult<()> {
+    #[connector_test(
+        only(Postgres, Sqlite),
+        exclude(
+            Postgres("neon.js", "pg.js", "neon.js.wasm", "pg.js.wasm"),
+            Sqlite("libsql.js", "libsql.js.wasm", "cfd1")
+        )
+    )]
+    async fn invalid_parameter_count(runner: Runner) -> TestResult<()> {
+        assert_error!(
+            runner,
+            fmt_execute_raw(r#"INSERT INTO "TestModel" ("id", "point") VALUES (1, $1);"#, vec![]),
+            1016,
+            "Your raw query had an incorrect number of parameters. Expected: `1`, actual: `0`."
+        );
+
+        Ok(())
+    }
+
+    // On driver-adapters, this fails with:
+    // Raw query failed. Code: `22P02`. Message: `ERROR: invalid input syntax for type integer: \\\"{\\\"1\\\"}\\\"`.
+    // See: `list_param_for_scalar_column_should_not_panic_pg_js`
+    #[connector_test(
+        schema(common_nullable_types),
+        only(Postgres),
+        exclude(Postgres("neon.js", "pg.js", "neon.js.wasm", "pg.js.wasm"))
+    )]
+    async fn list_param_for_scalar_column_should_not_panic_quaint(runner: Runner) -> TestResult<()> {
         assert_error!(
             runner,
             fmt_execute_raw(
@@ -44,6 +69,24 @@ mod raw_errors {
             ),
             2010,
             r#"column "id" is of type integer but expression is of type bigint[]"#
+        );
+
+        Ok(())
+    }
+
+    #[connector_test(
+        schema(common_nullable_types),
+        only(Postgres("neon.js", "neon.js.wasm", "pg.js", "pg.js.wasm"))
+    )]
+    async fn list_param_for_scalar_column_should_not_panic_pg_js(runner: Runner) -> TestResult<()> {
+        assert_error!(
+            runner,
+            fmt_execute_raw(
+                r#"INSERT INTO "TestModel" ("id") VALUES ($1);"#,
+                vec![RawParam::array(vec![1])],
+            ),
+            2010,
+            r#"invalid input syntax for type integer"#
         );
 
         Ok(())

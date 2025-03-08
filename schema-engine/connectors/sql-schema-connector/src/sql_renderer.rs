@@ -9,9 +9,17 @@
 //!   statements, this is done later.
 
 mod common;
+
+#[cfg(feature = "mssql")]
 mod mssql_renderer;
+
+#[cfg(feature = "mysql")]
 mod mysql_renderer;
+
+#[cfg(any(feature = "postgresql", feature = "cockroachdb"))]
 mod postgres_renderer;
+
+#[cfg(feature = "sqlite")]
 mod sqlite_renderer;
 
 pub(crate) use common::IteratorJoin;
@@ -51,10 +59,6 @@ pub(crate) trait SqlRenderer {
 
     fn render_rename_index(&self, _indexes: MigrationPair<IndexWalker<'_>>) -> Vec<String> {
         unreachable!("unreachable render_alter_index")
-    }
-
-    fn render_rename_primary_key(&self, _tables: MigrationPair<TableWalker<'_>>) -> Vec<String> {
-        unreachable!("unreachable render_rename_index")
     }
 
     fn render_alter_table(&self, alter_table: &AlterTable, schemas: MigrationPair<&SqlSchema>) -> Vec<String>;

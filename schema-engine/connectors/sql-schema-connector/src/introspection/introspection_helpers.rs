@@ -1,7 +1,7 @@
 //! Small utility functions.
 
 use sql::walkers::TableWalker;
-use sql_schema_describer::{self as sql, ColumnTypeFamily, IndexType};
+use sql_schema_describer::{self as sql, IndexColumnWalker, IndexType};
 use std::cmp;
 
 /// This function implements the reverse behaviour of the `Ord` implementation for `Option`: it
@@ -55,47 +55,8 @@ pub(crate) fn is_relay_table(table: TableWalker<'_>) -> bool {
             .any(|col| col.name().eq_ignore_ascii_case("stablemodelidentifier"))
 }
 
-/// If the table has `createdAt` and `updatedAt` fields.
-pub(crate) fn has_created_at_and_updated_at(table: TableWalker<'_>) -> bool {
-    let has_created_at = table.columns().any(|col| {
-        col.name().eq_ignore_ascii_case("createdat") && col.column_type().family == ColumnTypeFamily::DateTime
-    });
-
-    let has_updated_at = table.columns().any(|col| {
-        col.name().eq_ignore_ascii_case("updatedat") && col.column_type().family == ColumnTypeFamily::DateTime
-    });
-
-    has_created_at && has_updated_at
-}
-
-/// A special table to handle many to many relations in Prisma.
-pub(crate) fn is_prisma_join_table(t: TableWalker<'_>) -> bool {
-    is_prisma_1_point_0_join_table(t) || is_prisma_1_point_1_or_2_join_table(t)
-}
-
-/// A legacy Prisma 1 list table.
-pub(crate) fn is_prisma_1_or_11_list_table(table: TableWalker<'_>) -> bool {
-    table.columns().len() == 3
-        && table.columns().any(|col| col.name().eq_ignore_ascii_case("nodeid"))
-        && table.column("position").is_some()
-        && table.column("value").is_some()
-}
-
-/// A special legacy join table, seen in Prisma 1.1 and 1.2.
-pub(crate) fn is_prisma_1_point_1_or_2_join_table(table: TableWalker<'_>) -> bool {
-    table.columns().len() == 2 && table.indexes().len() >= 2 && common_prisma_m_to_n_relation_conditions(table)
-}
-
-/// A special legacy join table, seen in Prisma 1.0.
-pub(crate) fn is_prisma_1_point_0_join_table(table: TableWalker<'_>) -> bool {
-    table.columns().len() == 3
-        && table.indexes().len() >= 2
-        && table.columns().any(|c| c.name() == "id")
-        && common_prisma_m_to_n_relation_conditions(table)
-}
-
 /// If a relation defines a Prisma many to many relation.
-fn common_prisma_m_to_n_relation_conditions(table: TableWalker<'_>) -> bool {
+pub(crate) fn is_prisma_m_to_n_relation(table: TableWalker<'_>, pk_allowed: bool) -> bool {
     fn is_a(column: &str) -> bool {
         column.eq_ignore_ascii_case("a")
     }
@@ -104,9 +65,18 @@ fn common_prisma_m_to_n_relation_conditions(table: TableWalker<'_>) -> bool {
         column.eq_ignore_ascii_case("b")
     }
 
+    fn index_columns_match<'a>(mut columns: impl ExactSizeIterator<Item = IndexColumnWalker<'a>>) -> bool {
+        columns.len() == 2
+            && match (columns.next(), columns.next()) {
+                (Some(a), Some(b)) => is_a(a.name()) && is_b(b.name()),
+                _ => false,
+            }
+    }
+
     let mut fks = table.foreign_keys();
     let first_fk = fks.next();
     let second_fk = fks.next();
+
     let a_b_match = || {
         let first_fk = first_fk.unwrap();
         let second_fk = second_fk.unwrap();
@@ -119,14 +89,13 @@ fn common_prisma_m_to_n_relation_conditions(table: TableWalker<'_>) -> bool {
                 && is_b(first_fk_col)
                 && is_a(second_fk_col))
     };
+
     table.name().starts_with('_')
-        //UNIQUE INDEX [A,B]
-        && table.indexes().any(|i| {
-            i.columns().len() == 2
-                && is_a(i.columns().next().unwrap().as_column().name())
-                && is_b(i.columns().nth(1).unwrap().as_column().name())
+        // UNIQUE INDEX (A, B) or PRIMARY KEY (A, B)
+        && (table.indexes().any(|i| {
+            index_columns_match(i.columns())
                 && i.is_unique()
-        })
+        }) || pk_allowed && table.primary_key_columns().map(index_columns_match).unwrap_or(false))
     //INDEX [B]
     && table
         .indexes()

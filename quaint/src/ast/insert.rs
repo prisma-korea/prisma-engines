@@ -26,6 +26,7 @@ pub struct MultiRowInsert<'a> {
     pub(crate) table: Option<Table<'a>>,
     pub(crate) columns: Vec<Column<'a>>,
     pub(crate) values: Vec<Row<'a>>,
+    pub(crate) returning: Option<Vec<Column<'a>>>,
 }
 
 /// `INSERT` conflict resolution strategies.
@@ -186,6 +187,7 @@ impl<'a> Insert<'a> {
             table: Some(table.into()),
             columns: columns.into_iter().map(|c| c.into()).collect(),
             values: Vec::new(),
+            returning: None,
         }
     }
 
@@ -198,6 +200,7 @@ impl<'a> Insert<'a> {
             table: None,
             columns: columns.into_iter().map(|c| c.into()).collect(),
             values: Vec::new(),
+            returning: None,
         }
     }
 
@@ -233,7 +236,7 @@ impl<'a> Insert<'a> {
     /// let insert = Insert::from(query).comment("trace_id='5bd66ef5095369c7b0d1f8f4bd33716a', parent_id='c532cb4098ac3dd2'");
     /// let (sql, _) = Sqlite::build(insert)?;
     ///
-    /// assert_eq!("INSERT INTO `users` DEFAULT VALUES; /* trace_id='5bd66ef5095369c7b0d1f8f4bd33716a', parent_id='c532cb4098ac3dd2' */", sql);
+    /// assert_eq!("INSERT INTO `users` DEFAULT VALUES /* trace_id='5bd66ef5095369c7b0d1f8f4bd33716a', parent_id='c532cb4098ac3dd2' */", sql);
     /// # Ok(())
     /// # }
     /// ```
@@ -255,11 +258,6 @@ impl<'a> Insert<'a> {
     /// # Ok(())
     /// # }
     /// ```
-    #[cfg(any(feature = "postgresql", feature = "mssql", feature = "sqlite"))]
-    #[cfg_attr(
-        feature = "docs",
-        doc(cfg(any(feature = "postgresql", feature = "mssql", feature = "sqlite")))
-    )]
     pub fn returning<K, I>(mut self, columns: I) -> Self
     where
         K: Into<Column<'a>>,

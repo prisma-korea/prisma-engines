@@ -1,9 +1,8 @@
 use super::operation::*;
 use crate::*;
 
-use connector_interface::{CompositeWriteOperation, FieldPath, ScalarWriteOperation, WriteOperation};
-use mongodb::bson::doc;
-use prisma_models::{Field, PrismaValue};
+use bson::doc;
+use query_structure::{CompositeWriteOperation, Field, FieldPath, PrismaValue, ScalarWriteOperation, WriteOperation};
 
 pub(crate) trait IntoUpdateOperation {
     fn into_update_operations(self, field: &Field, path: FieldPath) -> crate::Result<Vec<UpdateOperation>>;

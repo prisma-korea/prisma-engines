@@ -1,5 +1,5 @@
 use crate::QueryGraphError;
-use prisma_models::{DomainError, RelationFieldRef};
+use query_structure::{DomainError, RelationFieldRef};
 use user_facing_errors::query_engine::validation::ValidationError;
 
 #[derive(Debug)]
@@ -42,6 +42,14 @@ pub enum QueryGraphBuilderError {
 
     QueryGraphError(QueryGraphError),
 }
+
+impl std::fmt::Display for QueryGraphBuilderError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        std::fmt::Debug::fmt(self, f)
+    }
+}
+
+impl std::error::Error for QueryGraphBuilderError {}
 
 #[derive(Debug)]
 pub struct RelationViolation {

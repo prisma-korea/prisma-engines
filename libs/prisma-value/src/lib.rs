@@ -1,16 +1,20 @@
 pub mod arithmetic;
 
 mod error;
+mod raw_json;
 
+use base64::prelude::*;
 use bigdecimal::{BigDecimal, FromPrimitive, ToPrimitive};
 use chrono::prelude::*;
 use serde::de::Unexpected;
 use serde::ser::SerializeMap;
 use serde::{ser::Serializer, Deserialize, Deserializer, Serialize};
+use serde_json::json;
 use std::{convert::TryFrom, fmt, str::FromStr};
 use uuid::Uuid;
 
 pub use error::ConversionFailure;
+pub use raw_json::RawJson;
 pub type PrismaValueResult<T> = std::result::Result<T, ConversionFailure>;
 pub type PrismaListValue = Vec<PrismaValue>;
 
@@ -43,6 +47,45 @@ pub enum PrismaValue {
 
     #[serde(serialize_with = "serialize_bytes")]
     Bytes(Vec<u8>),
+
+    #[serde(serialize_with = "serialize_placeholder")]
+    Placeholder {
+        name: String,
+        r#type: PlaceholderType,
+    },
+}
+
+#[derive(Debug, Clone, Eq, PartialEq, Hash, Serialize, Deserialize, PartialOrd, Ord)]
+pub enum PlaceholderType {
+    Any,
+    String,
+    Int,
+    BigInt,
+    Float,
+    Boolean,
+    Decimal,
+    Date,
+    Array(Box<PlaceholderType>),
+    Object,
+    Bytes,
+}
+
+impl std::fmt::Display for PlaceholderType {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            PlaceholderType::Any => write!(f, "Any"),
+            PlaceholderType::String => write!(f, "String"),
+            PlaceholderType::Int => write!(f, "Int"),
+            PlaceholderType::BigInt => write!(f, "BigInt"),
+            PlaceholderType::Float => write!(f, "Float"),
+            PlaceholderType::Boolean => write!(f, "Boolean"),
+            PlaceholderType::Decimal => write!(f, "Decimal"),
+            PlaceholderType::Date => write!(f, "Date"),
+            PlaceholderType::Array(t) => write!(f, "Array<{t}>"),
+            PlaceholderType::Object => write!(f, "Object"),
+            PlaceholderType::Bytes => write!(f, "Bytes"),
+        }
+    }
 }
 
 /// Stringify a date to the following format
@@ -62,11 +105,13 @@ pub fn parse_datetime(datetime: &str) -> chrono::ParseResult<DateTime<FixedOffse
 }
 
 pub fn encode_bytes(bytes: &[u8]) -> String {
-    base64::encode(bytes)
+    BASE64_STANDARD.encode(bytes)
 }
 
-pub fn decode_bytes(s: &str) -> PrismaValueResult<Vec<u8>> {
-    base64::decode(s).map_err(|_| ConversionFailure::new("base64 encoded bytes", "PrismaValue::Bytes"))
+pub fn decode_bytes(s: impl AsRef<[u8]>) -> PrismaValueResult<Vec<u8>> {
+    BASE64_STANDARD
+        .decode(s)
+        .map_err(|_| ConversionFailure::new("base64 encoded bytes", "PrismaValue::Bytes"))
 }
 
 impl TryFrom<serde_json::Value> for PrismaValue {
@@ -103,6 +148,7 @@ impl TryFrom<serde_json::Value> for PrismaValue {
 
                     Ok(PrismaValue::DateTime(date))
                 }
+
                 Some("bigint") => {
                     let value = obj
                         .get("prisma__value")
@@ -113,6 +159,7 @@ impl TryFrom<serde_json::Value> for PrismaValue {
                         .map(PrismaValue::BigInt)
                         .map_err(|_| ConversionFailure::new("JSON bigint value", "PrismaValue"))
                 }
+
                 Some("decimal") => {
                     let value = obj
                         .get("prisma__value")
@@ -123,6 +170,7 @@ impl TryFrom<serde_json::Value> for PrismaValue {
                         .map(PrismaValue::Float)
                         .map_err(|_| ConversionFailure::new("JSON decimal value", "PrismaValue"))
                 }
+
                 Some("bytes") => {
                     let value = obj
                         .get("prisma__value")
@@ -130,6 +178,24 @@ impl TryFrom<serde_json::Value> for PrismaValue {
                         .ok_or_else(|| ConversionFailure::new("JSON bytes value", "PrismaValue"))?;
 
                     decode_bytes(value).map(PrismaValue::Bytes)
+                }
+
+                Some("param") => {
+                    let obj = obj
+                        .get("prisma__value")
+                        .and_then(|v| v.as_object())
+                        .ok_or_else(|| ConversionFailure::new("JSON param value", "PrismaValue"))?;
+
+                    let name = obj
+                        .get("name")
+                        .and_then(|v| v.as_str())
+                        .ok_or_else(|| ConversionFailure::new("param name", "JSON param value"))?
+                        .to_owned();
+
+                    Ok(PrismaValue::Placeholder {
+                        name,
+                        r#type: PlaceholderType::Any, // parsing the type is not implemented yet
+                    })
                 }
 
                 _ => Ok(PrismaValue::Json(serde_json::to_string(&obj).unwrap())),
@@ -193,9 +259,27 @@ where
     map.end()
 }
 
+fn serialize_placeholder<S>(name: &str, r#type: &PlaceholderType, serializer: S) -> Result<S::Ok, S::Error>
+where
+    S: Serializer,
+{
+    let mut map = serializer.serialize_map(Some(2))?;
+
+    map.serialize_entry("prisma__type", "param")?;
+    map.serialize_entry(
+        "prisma__value",
+        &json!({
+            "name": name,
+            "type": r#type.to_string(),
+        }),
+    )?;
+
+    map.end()
+}
+
 struct BigDecimalVisitor;
 
-impl<'de> serde::de::Visitor<'de> for BigDecimalVisitor {
+impl serde::de::Visitor<'_> for BigDecimalVisitor {
     type Value = BigDecimal;
 
     fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
@@ -298,10 +382,22 @@ impl PrismaValue {
         PrismaValue::DateTime(parse_datetime(datetime).unwrap())
     }
 
+    pub fn placeholder(name: String, r#type: PlaceholderType) -> PrismaValue {
+        PrismaValue::Placeholder { name, r#type }
+    }
+
     pub fn as_boolean(&self) -> Option<&bool> {
         match self {
             PrismaValue::Boolean(bool) => Some(bool),
             _ => None,
+        }
+    }
+
+    pub fn as_json(&self) -> Option<&String> {
+        if let Self::Json(v) = self {
+            Some(v)
+        } else {
+            None
         }
     }
 }
@@ -333,6 +429,7 @@ impl fmt::Display for PrismaValue {
 
                 write!(f, "{{ {joined} }}")
             }
+            PrismaValue::Placeholder { name, r#type } => write!(f, "var({name}: {type})"),
         }
     }
 }

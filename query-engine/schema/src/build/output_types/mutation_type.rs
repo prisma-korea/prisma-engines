@@ -1,8 +1,8 @@
 use super::*;
 use input_types::fields::arguments;
-use mutations::{create_many, create_one};
-use prisma_models::{DefaultKind, PrismaValue};
+use mutations::{create_many, create_many_and_return, create_one};
 use psl::datamodel_connector::ConnectorCapability;
+use query_structure::{DefaultKind, PrismaValue};
 
 /// Builds the root `Mutation` type.
 pub(crate) fn mutation_fields(ctx: &QuerySchema) -> Vec<FieldFn> {
@@ -20,8 +20,13 @@ pub(crate) fn mutation_fields(ctx: &QuerySchema) -> Vec<FieldFn> {
             field!(create_one, model);
 
             field!(upsert_item_field, model);
+
             if ctx.has_capability(ConnectorCapability::CreateMany) {
                 field!(create_many, model);
+
+                if ctx.has_capability(ConnectorCapability::InsertReturning) {
+                    field!(create_many_and_return, model);
+                }
             }
         }
 
@@ -29,15 +34,18 @@ pub(crate) fn mutation_fields(ctx: &QuerySchema) -> Vec<FieldFn> {
         field!(update_item_field, model);
 
         field!(update_many_field, model);
+        if ctx.has_capability(ConnectorCapability::UpdateReturning) {
+            field!(update_many_and_return_field, model);
+        }
         field!(delete_many_field, model);
     }
 
-    if ctx.enable_raw_queries && ctx.has_capability(ConnectorCapability::SqlQueryRaw) {
+    if ctx.enable_raw_queries && ctx.is_sql() {
         fields.push(Box::new(|_| create_execute_raw_field()));
         fields.push(Box::new(|_| create_query_raw_field()));
     }
 
-    if ctx.enable_raw_queries && ctx.has_capability(ConnectorCapability::MongoDbQueryRaw) {
+    if ctx.enable_raw_queries && ctx.is_mongo() {
         fields.push(Box::new(|_| create_mongodb_run_command_raw()));
     }
 
@@ -165,6 +173,23 @@ fn update_many_field(ctx: &QuerySchema, model: Model) -> OutputField<'_> {
     )
 }
 
+/// Builds an update many mutation field (e.g. updateManyUsersAndReturn) for given model.
+fn update_many_and_return_field(ctx: &QuerySchema, model: Model) -> OutputField<'_> {
+    let field_name = format!("updateMany{}AndReturn", model.name());
+    let cloned_model = model.clone();
+    let object_type = update_many_and_return_output_type(ctx, model.clone());
+
+    field(
+        field_name,
+        move || arguments::update_many_arguments(ctx, cloned_model),
+        OutputType::list(InnerOutputType::Object(object_type)),
+        Some(QueryInfo {
+            model: Some(model.id),
+            tag: QueryTag::UpdateManyAndReturn,
+        }),
+    )
+}
+
 /// Builds an upsert mutation field (e.g. upsertUser) for given model.
 fn upsert_item_field(ctx: &QuerySchema, model: Model) -> OutputField<'_> {
     let cloned_model = model.clone();
@@ -178,4 +203,31 @@ fn upsert_item_field(ctx: &QuerySchema, model: Model) -> OutputField<'_> {
             tag: QueryTag::UpsertOne,
         }),
     )
+}
+
+fn update_many_and_return_output_type(ctx: &'_ QuerySchema, model: Model) -> ObjectType<'_> {
+    let model_id = model.id;
+    let mut obj = ObjectType::new(
+        Identifier::new_model(IdentifierType::UpdateManyAndReturnOutput(model.clone())),
+        move || {
+            let mut fields: Vec<_> = model
+                .fields()
+                .scalar()
+                .map(|sf| field::map_output_field(ctx, sf.into()))
+                .collect();
+
+            // If the relation is inlined in the enclosing model, that means the foreign keys can be set at creation
+            // and thus it makes sense to enable querying this relation.
+            for rf in model.fields().relation() {
+                if rf.is_inlined_on_enclosing_model() {
+                    fields.push(field::map_output_field(ctx, rf.into()));
+                }
+            }
+
+            fields
+        },
+    );
+
+    obj.model = Some(model_id);
+    obj
 }

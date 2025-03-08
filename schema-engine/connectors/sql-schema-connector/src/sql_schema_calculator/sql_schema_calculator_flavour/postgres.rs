@@ -1,10 +1,10 @@
-use super::{super::Context, SqlSchemaCalculatorFlavour};
+use super::{super::Context, JoinTableUniquenessConstraint, SqlSchemaCalculatorFlavour};
 use crate::flavour::{PostgresFlavour, SqlFlavour};
 use either::Either;
 use psl::{
     builtin_connectors::{cockroach_datamodel_connector::SequenceFunction, PostgresDatasourceProperties},
     datamodel_connector::walker_ext_traits::IndexWalkerExt,
-    parser_database::{IndexAlgorithm, OperatorClass},
+    parser_database::{walkers::EnumWalker, IndexAlgorithm, OperatorClass},
 };
 use sql::postgres::DatabaseExtension;
 use sql_schema_describer::{self as sql, postgres::PostgresSchemaExt};
@@ -29,6 +29,10 @@ impl SqlSchemaCalculatorFlavour for PostgresFlavour {
         }
     }
 
+    fn column_type_for_enum(&self, enm: EnumWalker<'_>, ctx: &Context<'_>) -> Option<sql::ColumnTypeFamily> {
+        ctx.enum_ids.get(&enm.id).map(|id| sql::ColumnTypeFamily::Enum(*id))
+    }
+
     fn column_default_value_for_autoincrement(&self) -> Option<sql::DefaultValue> {
         if self.is_cockroachdb() {
             Some(sql::DefaultValue::unique_rowid())
@@ -37,7 +41,7 @@ impl SqlSchemaCalculatorFlavour for PostgresFlavour {
         }
     }
 
-    fn push_connector_data(&self, context: &mut super::super::Context<'_>) {
+    fn push_connector_data(&self, context: &mut crate::sql_schema_calculator::Context<'_>) {
         let mut postgres_ext = PostgresSchemaExt::default();
         let db = &context.datamodel.db;
 
@@ -69,7 +73,7 @@ impl SqlSchemaCalculatorFlavour for PostgresFlavour {
         }
 
         for model in db.walk_models() {
-            let table_id = context.model_id_to_table_id[&model.model_id()];
+            let table_id = context.model_id_to_table_id[&model.id];
 
             // Add index algorithms and opclasses.
             for index in model.indexes() {
@@ -161,6 +165,14 @@ impl SqlSchemaCalculatorFlavour for PostgresFlavour {
             .schema
             .describer_schema
             .set_connector_data(Box::new(postgres_ext));
+    }
+
+    fn m2m_join_table_constraint(&self) -> JoinTableUniquenessConstraint {
+        if self.is_cockroachdb() {
+            JoinTableUniquenessConstraint::UniqueIndex
+        } else {
+            JoinTableUniquenessConstraint::PrimaryKey
+        }
     }
 }
 

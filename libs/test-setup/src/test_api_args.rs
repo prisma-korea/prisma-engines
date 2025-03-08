@@ -1,7 +1,8 @@
 use crate::{logging, mssql, mysql, postgres, Capabilities, Tags};
 use enumflags2::BitFlags;
-use once_cell::sync::Lazy;
 use quaint::single::Quaint;
+use std::sync::LazyLock;
+use std::time::Duration;
 use std::{fmt::Display, io::Write as _};
 
 #[derive(Debug)]
@@ -11,19 +12,23 @@ pub(crate) struct DbUnderTest {
     shadow_database_url: Option<String>,
     provider: &'static str,
     pub(crate) tags: BitFlags<Tags>,
+    pub(crate) max_ddl_refresh_delay: Option<std::time::Duration>,
 }
 
 const MISSING_TEST_DATABASE_URL_MSG: &str = r#"
 Missing TEST_DATABASE_URL from environment.
 
-If you are developing with the docker-compose based setup, you can find the environment variables under .test_database_urls at the project root.
+If you are developing with the docker compose based setup, you can find the environment variables under .test_database_urls at the project root.
 
 Example usage:
 
 source .test_database_urls/mysql_5_6
 "#;
 
-static DB_UNDER_TEST: Lazy<Result<DbUnderTest, String>> = Lazy::new(|| {
+/// How long to wait for a schema change to propagate in Vitess.
+const VITESS_MAX_REFRESH_DELAY_MS: u64 = 1000;
+
+static DB_UNDER_TEST: LazyLock<Result<DbUnderTest, String>> = LazyLock::new(|| {
     let database_url = std::env::var("TEST_DATABASE_URL").map_err(|_| MISSING_TEST_DATABASE_URL_MSG.to_owned())?;
     let shadow_database_url = std::env::var("TEST_SHADOW_DATABASE_URL").ok();
     let prefix = database_url
@@ -37,16 +42,25 @@ static DB_UNDER_TEST: Lazy<Result<DbUnderTest, String>> = Lazy::new(|| {
         "file" | "sqlite" => Ok(DbUnderTest {
             database_url,
             tags: Tags::Sqlite.into(),
-            capabilities: Capabilities::CreateDatabase.into(),
+            capabilities: Capabilities::CreateDatabase | Capabilities::Enums | Capabilities::Json,
             provider: "sqlite",
             shadow_database_url,
+            max_ddl_refresh_delay: None,
         }),
         "mysql" => {
             let tags = mysql::get_mysql_tags(&database_url)?;
             let mut capabilities = Capabilities::Enums | Capabilities::Json;
+            let mut max_refresh_delay = None;
 
             if tags.contains(Tags::Vitess) {
                 capabilities |= Capabilities::CreateDatabase;
+                // Vitess is an eventually consistent system that propagates schema changes
+                // from vttablet to vtgate asynchronously. We might need to wait for a while before
+                // start querying the database after a schema change is made.
+                //
+                // For schema changes that do not alter the table column names, the schema is not
+                // required to be reloaded.
+                max_refresh_delay = Some(Duration::from_millis(VITESS_MAX_REFRESH_DELAY_MS));
             }
 
             Ok(DbUnderTest {
@@ -55,6 +69,7 @@ static DB_UNDER_TEST: Lazy<Result<DbUnderTest, String>> = Lazy::new(|| {
                 capabilities,
                 provider: "mysql",
                 shadow_database_url,
+                max_ddl_refresh_delay: max_refresh_delay,
             })
         }
         "postgresql" | "postgres" => Ok({
@@ -75,6 +90,7 @@ static DB_UNDER_TEST: Lazy<Result<DbUnderTest, String>> = Lazy::new(|| {
                     | Capabilities::CreateDatabase,
                 provider,
                 shadow_database_url,
+                max_ddl_refresh_delay: None,
             }
         }),
         "sqlserver" => Ok(DbUnderTest {
@@ -83,6 +99,7 @@ static DB_UNDER_TEST: Lazy<Result<DbUnderTest, String>> = Lazy::new(|| {
             capabilities: Capabilities::CreateDatabase.into(),
             provider: "sqlserver",
             shadow_database_url,
+            max_ddl_refresh_delay: None,
         }),
         _ => Err("Unknown database URL".into()),
     }
@@ -191,6 +208,10 @@ impl TestApiArgs {
     pub fn tags(&self) -> BitFlags<Tags> {
         self.db.tags
     }
+
+    pub fn max_ddl_refresh_delay(&self) -> Option<Duration> {
+        self.db.max_ddl_refresh_delay
+    }
 }
 
 pub struct DatasourceBlock<'a> {
@@ -200,7 +221,7 @@ pub struct DatasourceBlock<'a> {
     preview_features: &'static [&'static str],
 }
 
-impl<'a> DatasourceBlock<'a> {
+impl DatasourceBlock<'_> {
     pub fn url(&self) -> &str {
         self.url
     }
