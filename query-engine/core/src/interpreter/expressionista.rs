@@ -1,8 +1,9 @@
-use super::{
-    expression::*, ComputationResult, DiffResult, Env, ExpressionResult, InterpretationResult, InterpreterError,
-};
+use super::{expression::*, Env, ExpressionResult, InterpretationResult, InterpreterError};
 use crate::{query_graph::*, Query};
-use std::{collections::VecDeque, convert::TryInto};
+use std::{
+    collections::{HashSet, VecDeque},
+    convert::TryInto,
+};
 
 pub(crate) struct Expressionista;
 
@@ -168,17 +169,28 @@ impl Expressionista {
         let into_expr = Box::new(move |node: Node| {
             Ok(Expression::Func {
                 func: Box::new(move |_| match node {
-                    Node::Computation(Computation::Diff(DiffNode { left, right })) => {
-                        let left_diff = left.difference(&right);
-                        let right_diff = right.difference(&left);
+                    Node::Computation(Computation::DiffLeftToRight(DiffNode { left, right })) => {
+                        let left: HashSet<_> = left.into_iter().collect();
+                        let right: HashSet<_> = right.into_iter().collect();
+
+                        let diff = left.difference(&right);
 
                         Ok(Expression::Return {
-                            result: Box::new(ExpressionResult::Computation(ComputationResult::Diff(DiffResult {
-                                left: left_diff.into_iter().cloned().collect(),
-                                right: right_diff.into_iter().cloned().collect(),
-                            }))),
+                            result: Box::new(ExpressionResult::FixedResult(diff.cloned().collect())),
                         })
                     }
+
+                    Node::Computation(Computation::DiffRightToLeft(DiffNode { left, right })) => {
+                        let left: HashSet<_> = left.into_iter().collect();
+                        let right: HashSet<_> = right.into_iter().collect();
+
+                        let diff = right.difference(&left);
+
+                        Ok(Expression::Return {
+                            result: Box::new(ExpressionResult::FixedResult(diff.cloned().collect())),
+                        })
+                    }
+
                     _ => unreachable!(),
                 }),
             })
@@ -209,7 +221,7 @@ impl Expressionista {
         graph.mark_visited(node);
 
         match graph.node_content(node).unwrap() {
-            Node::Flow(Flow::If(_)) => Self::translate_if_node(graph, node, parent_edges),
+            Node::Flow(Flow::If { .. }) => Self::translate_if_node(graph, node, parent_edges),
             Node::Flow(Flow::Return(_)) => Self::translate_return_node(graph, node, parent_edges),
             _ => unreachable!(),
         }
@@ -253,9 +265,9 @@ impl Expressionista {
         let into_expr = Box::new(move |node: Node| {
             let flow: Flow = node.try_into()?;
 
-            if let Flow::If(cond_fn) = flow {
+            if let Flow::If { rule, data } = flow {
                 let if_expr = Expression::If {
-                    func: cond_fn,
+                    func: Box::new(move || rule.matches_data(&data)),
                     then: vec![then_expr],
                     else_: else_expr,
                 };
@@ -346,7 +358,7 @@ impl Expressionista {
                         let node: InterpretationResult<Node> =
                             parent_id_deps
                                 .into_iter()
-                                .try_fold(node, |node, (parent_binding_name, dependency)| {
+                                .try_fold(node, |mut node, (parent_binding_name, dependency)| {
                                     let binding = match env.get(&parent_binding_name) {
                                         Some(binding) => Ok(binding),
                                         None => Err(InterpreterError::EnvVarNotFound(format!(
@@ -364,15 +376,37 @@ impl Expressionista {
                                             })
                                         }
 
+                                        QueryGraphDependency::ProjectedDataSinkDependency(
+                                            selection,
+                                            sink,
+                                            expectation,
+                                        ) => binding.as_selection_results(&selection).and_then(
+                                            |mut parent_selections| {
+                                                if let Some(expectation) = expectation {
+                                                    expectation.check(&parent_selections)?;
+                                                }
+                                                match sink {
+                                                    DataSink::AllRows(field) => {
+                                                        *field.node_input_field(&mut node) = parent_selections
+                                                    }
+                                                    DataSink::SingleRow(field) => {
+                                                        let row = parent_selections.pop().expect(
+                                                            "parent selection should be present after validation",
+                                                        );
+                                                        *field.node_input_field(&mut node) = row;
+                                                    }
+                                                    DataSink::SingleRowArray(field) => {
+                                                        let row = parent_selections.pop().expect(
+                                                            "parent selection should be present after validation",
+                                                        );
+                                                        *field.node_input_field(&mut node) = vec![row];
+                                                    }
+                                                }
+                                                Ok(node)
+                                            },
+                                        ),
+
                                         QueryGraphDependency::DataDependency(f) => Ok(f(node, binding)?),
-
-                                        QueryGraphDependency::DiffLeftDataDependency(f) => {
-                                            Ok(f(node, &binding.as_diff_result()?.left)?)
-                                        }
-
-                                        QueryGraphDependency::DiffRightDataDependency(f) => {
-                                            Ok(f(node, &binding.as_diff_result()?.right)?)
-                                        }
 
                                         _ => unreachable!(),
                                     };
@@ -402,8 +436,7 @@ impl Expressionista {
             .filter_map(|edge| match graph.pluck_edge(&edge) {
                 x @ (QueryGraphDependency::DataDependency(_)
                 | QueryGraphDependency::ProjectedDataDependency(_, _, _)
-                | QueryGraphDependency::DiffLeftDataDependency(_)
-                | QueryGraphDependency::DiffRightDataDependency(_)) => {
+                | QueryGraphDependency::ProjectedDataSinkDependency(_, _, _)) => {
                     let parent_binding_name = graph.edge_source(&edge).id();
                     Some((parent_binding_name, x))
                 }

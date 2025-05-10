@@ -20,7 +20,7 @@ use petgraph::{
     *,
 };
 use query_structure::{FieldSelection, IntoFilter, QueryArguments, SelectionResult};
-use std::{collections::HashSet, fmt};
+use std::fmt;
 
 pub type QueryGraphResult<T> = std::result::Result<T, QueryGraphError>;
 
@@ -74,35 +74,48 @@ impl From<Flow> for Node {
 pub enum Flow {
     /// Expresses a conditional control flow in the graph.
     /// Possible outgoing edges are `then` and `else`, each at most once, with `then` required to be present.
-    If(Box<dyn FnOnce() -> bool + Send + Sync + 'static>),
+    If { rule: DataRule, data: Vec<SelectionResult> },
 
     /// Returns a fixed set of results at runtime.
     Return(Option<Vec<SelectionResult>>),
 }
 
 impl Flow {
-    pub fn default_if() -> Self {
-        Self::If(Box::new(|| true))
+    pub fn if_non_empty() -> Self {
+        Self::If {
+            rule: DataRule::RowCountNeq(0),
+            data: Vec::new(),
+        }
+    }
+
+    pub fn if_false() -> Self {
+        Self::If {
+            rule: DataRule::Never,
+            data: Vec::new(),
+        }
     }
 }
 
 // Current limitation: We need to narrow it down to ID diffs for Hash and EQ.
 pub enum Computation {
-    Diff(DiffNode),
+    DiffLeftToRight(DiffNode),
+    DiffRightToLeft(DiffNode),
 }
 
 impl Computation {
-    pub fn empty_diff() -> Self {
-        Self::Diff(DiffNode {
-            left: HashSet::new(),
-            right: HashSet::new(),
-        })
+    pub fn empty_diff_left_to_right() -> Self {
+        Self::DiffLeftToRight(DiffNode::default())
+    }
+
+    pub fn empty_diff_right_to_left() -> Self {
+        Self::DiffRightToLeft(DiffNode::default())
     }
 }
 
+#[derive(Default)]
 pub struct DiffNode {
-    pub left: HashSet<SelectionResult>,
-    pub right: HashSet<SelectionResult>,
+    pub left: Vec<SelectionResult>,
+    pub right: Vec<SelectionResult>,
 }
 
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone, Copy)]
@@ -135,9 +148,6 @@ pub(crate) type ProjectedDataDependencyFn =
 pub(crate) type DataDependencyFn =
     Box<dyn FnOnce(Node, &ExpressionResult) -> QueryGraphBuilderResult<Node> + Send + Sync + 'static>;
 
-pub(crate) type DiffDataDependencyFn =
-    Box<dyn FnOnce(Node, &[SelectionResult]) -> QueryGraphBuilderResult<Node> + Send + Sync + 'static>;
-
 /// Stored on the edges of the QueryGraph, a QueryGraphDependency contains information on how children are connected to their parents,
 /// expressing for example the need for additional information from the parent to be able to execute at runtime.
 pub enum QueryGraphDependency {
@@ -158,19 +168,24 @@ pub enum QueryGraphDependency {
     /// See `insert_reloads` for more information.
     ProjectedDataDependency(FieldSelection, ProjectedDataDependencyFn, Option<DataExpectation>), // [Composites] todo rename
 
-    /// Specialized version of `DataDependency` that accepts the the difference
-    /// between the left and right side of a parent diff operation.
-    DiffLeftDataDependency(DiffDataDependencyFn),
-
-    /// Specialized version of `DataDependency` that accepts the the difference
-    /// between the right and left side of a parent diff operation.
-    DiffRightDataDependency(DiffDataDependencyFn),
+    ProjectedDataSinkDependency(FieldSelection, DataSink, Option<DataExpectation>),
 
     /// Only valid in the context of a `If` control flow node.
     Then,
 
     /// Only valid in the context of a `If` control flow node.
     Else,
+}
+
+#[derive(Debug)]
+pub enum DataSink {
+    AllRows(&'static dyn NodeInputField<Vec<SelectionResult>>),
+    SingleRow(&'static dyn NodeInputField<SelectionResult>),
+    SingleRowArray(&'static dyn NodeInputField<Vec<SelectionResult>>),
+}
+
+pub trait NodeInputField<R>: Send + Sync + std::fmt::Debug {
+    fn node_input_field<'a>(&self, node: &'a mut Node) -> &'a mut R;
 }
 
 /// An expectation for a data dependency.
@@ -211,17 +226,8 @@ impl DataExpectation {
 
     pub fn check(&self, results: &[SelectionResult]) -> Result<(), QueryGraphBuilderError> {
         for rule in &self.rules {
-            match rule {
-                DataRule::RowCountEq(expected) => {
-                    if results.len() != *expected {
-                        return Err(self.error.to_runtime_error(results));
-                    }
-                }
-                DataRule::RowCountNeq(expected) => {
-                    if results.len() == *expected {
-                        return Err(self.error.to_runtime_error(results));
-                    }
-                }
+            if !rule.matches_data(results) {
+                return Err(self.error.to_runtime_error(results));
             }
         }
         Ok(())
@@ -236,6 +242,18 @@ pub enum DataRule {
     RowCountEq(usize),
     /// Expect the data dependency to contain a number of rows that is not equal to the given value.
     RowCountNeq(usize),
+    /// Expect the edge to not be taken and never match any data.
+    Never,
+}
+
+impl DataRule {
+    pub fn matches_data(&self, results: &[SelectionResult]) -> bool {
+        match self {
+            Self::RowCountEq(expected) => results.len() == *expected,
+            Self::RowCountNeq(expected) => results.len() != *expected,
+            Self::Never => false,
+        }
+    }
 }
 
 /// An error that can occur during data dependency validation.
@@ -623,7 +641,7 @@ impl QueryGraph {
                     .expect("Expected marked nodes to be non-empty.")
                 {
                     // Exception rule: Only swap `Then` and `Else` edges.
-                    Node::Flow(Flow::If(_)) => {
+                    Node::Flow(Flow::If { .. }) => {
                         if matches!(
                             self.edge_content(&parent_edge),
                             Some(QueryGraphDependency::Then) | Some(QueryGraphDependency::Else)
@@ -705,7 +723,7 @@ impl QueryGraph {
         for node_ix in self.graph.node_indices() {
             let node = NodeRef { node_ix };
 
-            if let Node::Flow(Flow::If(_)) = self.node_content(&node).unwrap() {
+            if let Node::Flow(Flow::If { .. }) = self.node_content(&node).unwrap() {
                 let parents = self.incoming_edges(&node);
 
                 for parent_edge in parents {
@@ -762,7 +780,8 @@ impl QueryGraph {
             let dependencies: Vec<FieldSelection> = out_edges
                 .into_iter()
                 .filter_map(|edge| match self.edge_content(&edge).unwrap() {
-                    QueryGraphDependency::ProjectedDataDependency(ref requested_selection, _, _) => {
+                    QueryGraphDependency::ProjectedDataDependency(ref requested_selection, _, _)
+                    | QueryGraphDependency::ProjectedDataSinkDependency(ref requested_selection, _, _) => {
                         Some(requested_selection.clone())
                     }
                     _ => None,
@@ -776,7 +795,10 @@ impl QueryGraph {
             let incoming_dep_edge = in_edges.into_iter().find(|edge| {
                 matches!(
                     self.edge_content(edge),
-                    Some(QueryGraphDependency::ProjectedDataDependency(_, _, _))
+                    Some(
+                        QueryGraphDependency::ProjectedDataDependency(_, _, _)
+                            | QueryGraphDependency::ProjectedDataSinkDependency(_, _, _)
+                    )
                 )
             });
 
@@ -787,14 +809,28 @@ impl QueryGraph {
                     .remove_edge(incoming_edge)
                     .expect("Expected edges between marked nodes to be non-empty.");
 
-                if let QueryGraphDependency::ProjectedDataDependency(existing, transformer, expectation) = content {
-                    let merged_dependencies = dependencies.merge(existing);
-
-                    self.create_edge(
-                        &source,
-                        &target,
-                        QueryGraphDependency::ProjectedDataDependency(merged_dependencies, transformer, expectation),
-                    )?;
+                match content {
+                    QueryGraphDependency::ProjectedDataDependency(existing, transformer, expectation) => {
+                        let merged_dependencies = dependencies.merge(existing);
+                        self.create_edge(
+                            &source,
+                            &target,
+                            QueryGraphDependency::ProjectedDataDependency(
+                                merged_dependencies,
+                                transformer,
+                                expectation,
+                            ),
+                        )?;
+                    }
+                    QueryGraphDependency::ProjectedDataSinkDependency(existing, sink, expectation) => {
+                        let merged_dependencies = dependencies.merge(existing);
+                        self.create_edge(
+                            &source,
+                            &target,
+                            QueryGraphDependency::ProjectedDataSinkDependency(merged_dependencies, sink, expectation),
+                        )?;
+                    }
+                    _ => (),
                 }
             }
         }
@@ -1005,6 +1041,7 @@ impl QueryGraph {
                         .into_iter()
                         .filter_map(|edge| match self.edge_content(&edge).unwrap() {
                             QueryGraphDependency::ProjectedDataDependency(ref requested_selection, _, _)
+                            | QueryGraphDependency::ProjectedDataSinkDependency(ref requested_selection, _, _)
                                 if !q.satisfies(requested_selection) =>
                             {
                                 Some(requested_selection.clone())
