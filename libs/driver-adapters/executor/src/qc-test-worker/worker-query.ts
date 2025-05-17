@@ -58,7 +58,7 @@ class QueryPipeline {
 
       debug('🟢 Batch query results: ', results)
 
-      return JSON.stringify({
+      return bigIntSafeJsonStringify({
         batchResult: batch.map((query, index) =>
           getResponseInQeFormat(query, results[index]),
         ),
@@ -79,10 +79,10 @@ class QueryPipeline {
 
         debug('🟢 Query result: ', util.inspect(result, false, null, true))
 
-        return JSON.stringify(getResponseInQeFormat(query, result))
+        return bigIntSafeJsonStringify(getResponseInQeFormat(query, result))
       } catch (error) {
         if (error instanceof UserFacingError) {
-          return JSON.stringify({
+          return bigIntSafeJsonStringify({
             errors: [error.toQueryResponseErrorObject()],
           })
         }
@@ -99,7 +99,7 @@ class QueryPipeline {
     let queryPlanString: string
     try {
       queryPlanString = withLocalPanicHandler(() =>
-        this.compiler.compile(JSON.stringify(query)),
+        this.compiler.compile(bigIntSafeJsonStringify(query)),
       )
     } catch (error) {
       if (typeof error.message === 'string' && typeof error.code === 'string') {
@@ -123,7 +123,7 @@ class QueryPipeline {
       transactionManager: qiTransactionManager,
       placeholderValues: {},
       onQuery: (event: QueryEvent) => {
-        this.logs.push(JSON.stringify(event))
+        this.logs.push(bigIntSafeJsonStringify(event))
       },
       tracingHelper: noopTracingHelper,
     }
@@ -184,7 +184,10 @@ class QueryPipeline {
 function getResponseInQeFormat(query: JsonProtocolQuery, result: unknown) {
   return {
     data: {
-      [getFullOperationName(query)]: getOperationResultInQeFormat(result),
+      [getFullOperationName(query)]:
+        query.action !== 'queryRaw' && query.action !== 'executeRaw'
+          ? getOperationResultInQeFormat(result)
+          : result,
     },
   }
 }
@@ -195,6 +198,10 @@ function getFullOperationName(query: JsonProtocolQuery): string {
       return `createMany${query.modelName}AndReturn`
     case 'updateManyAndReturn':
       return `updateMany${query.modelName}AndReturn`
+    case 'findFirstOrThrow':
+      return `findFirst${query.modelName}OrThrow`
+    case 'findUniqueOrThrow':
+      return `findUnique${query.modelName}OrThrow`
     default:
       if (query.modelName) {
         return query.action + query.modelName
@@ -221,6 +228,17 @@ function isPlainRawQuery(plan: QueryPlanNode): boolean {
     default:
       return false
   }
+}
+
+function bigIntSafeJsonStringify(obj: unknown): string {
+  return JSON.stringify(obj, (_key, val) => {
+    if (typeof val === 'bigint') {
+      return val.toString()
+    } else if (val instanceof Uint8Array) {
+      return Buffer.from(val).toString('base64')
+    }
+    return val
+  })
 }
 
 function serializeRawQueryResult(

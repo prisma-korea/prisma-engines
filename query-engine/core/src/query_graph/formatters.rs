@@ -55,8 +55,8 @@ fn stringify_nodes(graph: &QueryGraph, nodes: Vec<NodeRef>, seen_nodes: &mut Vec
 impl Display for Flow {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::If(_) => write!(f, "(If (condition func)"),
-            Self::Return(_) => write!(f, "(return results)"),
+            Self::If { rule, .. } => write!(f, "If {rule:?}"),
+            Self::Return(_) => write!(f, "Return"),
         }
     }
 }
@@ -64,7 +64,8 @@ impl Display for Flow {
 impl Display for Computation {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::Diff(_) => write!(f, "Diff"),
+            Self::DiffLeftToRight(_) => write!(f, "DiffLeftToRight"),
+            Self::DiffRightToLeft(_) => write!(f, "DiffRightToLeft"),
         }
     }
 }
@@ -118,8 +119,16 @@ impl Display for QueryGraphDependency {
                         .collect::<Vec<_>>()
                 )
             }
-            Self::DiffLeftDataDependency(_) => write!(f, "DiffLeftResult"),
-            Self::DiffRightDataDependency(_) => write!(f, "DiffRightResult"),
+            Self::ProjectedDataSinkDependency(selection, sink, _) => {
+                write!(
+                    f,
+                    "ProjectedDataSinkDependency({sink:?}) {:?}",
+                    selection
+                        .selections()
+                        .map(|f| format!("{}.{}", f.container().name(), f.prisma_name()))
+                        .collect::<Vec<_>>()
+                )
+            }
             Self::Then => write!(f, "Then"),
             Self::Else => write!(f, "Else"),
         }

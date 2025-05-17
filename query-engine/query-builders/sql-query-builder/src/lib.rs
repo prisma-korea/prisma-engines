@@ -36,7 +36,7 @@ pub use context::Context;
 pub use convert::opaque_type_to_prisma_type;
 pub use filter::FilterBuilder;
 pub use model_extensions::{AsColumn, AsColumns, AsTable, RelationFieldExt, SelectionResultExt};
-use read::alias_with_prisma_name;
+use read::alias_with_db_name;
 pub use sql_trace::SqlTraceComment;
 use value::GeneratorCall;
 
@@ -64,7 +64,7 @@ impl<'a, V> SqlQueryBuilder<'a, V> {
         let params = template
             .parameters
             .into_iter()
-            .map(convert::quaint_value_to_prisma_value)
+            .map(|v| convert::quaint_value_to_prisma_value(v, self.context.sql_family()))
             .collect::<Vec<_>>();
 
         Ok(DbQuery::TemplateSql {
@@ -167,7 +167,7 @@ impl<'a, V: Visitor<'a>> QueryBuilder for SqlQueryBuilder<'a, V> {
         having: Option<Filter>,
     ) -> Result<DbQuery, Box<dyn std::error::Error + Send + Sync>> {
         let query = if group_by.is_empty() {
-            read::aggregate(model, selections, args, alias_with_prisma_name(), &self.context)
+            read::aggregate(model, selections, args, alias_with_db_name(), &self.context)
         } else {
             read::group_by_aggregate(
                 model,
@@ -175,7 +175,7 @@ impl<'a, V: Visitor<'a>> QueryBuilder for SqlQueryBuilder<'a, V> {
                 selections,
                 group_by,
                 having,
-                alias_with_prisma_name(),
+                alias_with_db_name(),
                 &self.context,
             )
         };

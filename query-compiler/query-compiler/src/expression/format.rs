@@ -5,7 +5,7 @@ use pretty::{
     termcolor::{Color, ColorSpec},
 };
 use query_core::DataRule;
-use query_structure::PrismaValue;
+use query_structure::{Placeholder, PrismaValue};
 use std::borrow::Cow;
 
 fn color_kw() -> ColorSpec {
@@ -44,7 +44,7 @@ where
     pub fn expression(&'a self, expression: &'a Expression) -> DocBuilder<'a, PrettyPrinter<'a, D>, ColorSpec> {
         match expression {
             Expression::Seq(vec) => self.seq(vec),
-            Expression::Get { name } => self.get(name),
+            Expression::Get { name, .. } => self.get(name),
             Expression::Let { bindings, expr } => self.r#let(bindings, expr),
             Expression::GetFirstNonEmpty { names } => self.get_first_non_empty(names),
             Expression::Query(db_query) => self.query("query", db_query),
@@ -64,6 +64,14 @@ where
                 error_identifier,
                 ..
             } => self.validate(expr, rules, error_identifier),
+            Expression::If {
+                value,
+                rule,
+                then,
+                r#else,
+            } => self.r#if(value, rule, then, r#else),
+            Expression::Unit => self.keyword("()"),
+            Expression::Diff { from, to } => self.diff(from, to),
         }
     }
 
@@ -121,7 +129,7 @@ where
 
     fn value(&'a self, value: &'a PrismaValue) -> DocBuilder<'a, PrettyPrinter<'a, D>, ColorSpec> {
         match value {
-            PrismaValue::Placeholder { name, r#type } => self.keyword("var").append(
+            PrismaValue::Placeholder(Placeholder { name, r#type }) => self.keyword("var").append(
                 self.var_name(name)
                     .append(self.space())
                     .append(self.keyword("as"))
@@ -145,12 +153,15 @@ where
     fn function(
         &'a self,
         name: &'static str,
-        args: &'a [Expression],
+        args: impl IntoIterator<Item = &'a Expression>,
     ) -> DocBuilder<'a, PrettyPrinter<'a, D>, ColorSpec> {
-        self.text(name).annotate(color_fn()).append(self.space()).append(
-            self.intersperse(args.iter().map(|expr| self.expression(expr)), self.space())
-                .parens(),
-        )
+        self.text(name)
+            .annotate(color_fn())
+            .append(self.softline())
+            .append(self.intersperse(
+                args.into_iter().map(|expr| self.expression(expr).parens().align()),
+                self.softline(),
+            ))
     }
 
     fn unary_function(
@@ -288,11 +299,15 @@ where
         indent: &str,
     ) -> DocBuilder<'a, PrettyPrinter<'a, D>, ColorSpec> {
         match node {
-            ResultNode::Object { fields } => {
+            ResultNode::Object { fields, flattened } => {
                 let indent = &format!("{indent}   ");
                 let mut builder = doc.append(self.line());
                 for (name, field) in fields {
-                    builder = builder.append(self.text(format!("{indent}{name}: ")));
+                    builder = builder.append(self.text(format!("{indent}{name}")));
+                    if *flattened {
+                        builder = builder.append(self.text(" (flattened)"));
+                    }
+                    builder = builder.append(self.text(": "));
                     builder = self.data_map_node(builder, field, indent);
                 }
                 builder
@@ -325,6 +340,7 @@ where
                                 .text("rowCountNeq")
                                 .append(self.softline())
                                 .append(self.text(count.to_string())),
+                            DataRule::Never => self.text("never"),
                         };
                         self.softline().append(rendered_rule).append(self.line())
                     }),
@@ -336,6 +352,35 @@ where
             .append(self.keyword("orRaise"))
             .append(self.softline())
             .append(self.text(format!("{id:?}")))
+    }
+
+    fn r#if(
+        &'a self,
+        value: &'a Expression,
+        rule: &'a DataRule,
+        then: &'a Expression,
+        r#else: &'a Expression,
+    ) -> DocBuilder<'a, PrettyPrinter<'a, D>, ColorSpec> {
+        self.keyword("if")
+            .append(self.softline())
+            .append(
+                self.text(rule.to_string())
+                    .append(self.softline())
+                    .append(self.expression(value).parens().align())
+                    .parens(),
+            )
+            .append(self.line())
+            .append(self.keyword("then"))
+            .append(self.softline())
+            .append(self.expression(then).align())
+            .append(self.line())
+            .append(self.keyword("else"))
+            .append(self.softline())
+            .append(self.expression(r#else).align())
+    }
+
+    fn diff(&'a self, from: &'a Expression, to: &'a Expression) -> DocBuilder<'a, PrettyPrinter<'a, D>, ColorSpec> {
+        self.function("diff", [from, to])
     }
 }
 

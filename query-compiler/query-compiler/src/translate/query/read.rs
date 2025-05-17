@@ -5,7 +5,10 @@ use crate::{
 };
 use itertools::Itertools;
 use query_builder::{QueryArgumentsExt, QueryBuilder, RelationLink};
-use query_core::{AggregateRecordsQuery, FilteredQuery, QueryGraphBuilderError, ReadQuery, RelatedRecordsQuery};
+use query_core::{
+    AggregateRecordsQuery, DataExpectation, DataOperation, FilteredQuery, MissingRecord, QueryGraphBuilderError,
+    QueryOption, QueryOptions, ReadQuery, RelatedRecordsQuery,
+};
 use query_structure::{
     ConditionValue, FieldSelection, Filter, IntoFilter, PrismaValue, QueryArguments, QueryMode, RelationField,
     ScalarCondition, ScalarFilter, ScalarProjection, SelectionResult, Take,
@@ -27,6 +30,7 @@ pub(crate) fn translate_read_query(query: ReadQuery, builder: &dyn QueryBuilder)
                 .map_err(TranslateError::QueryBuildFailure)?;
 
             let expr = Expression::Query(query);
+            let expr = convert_options_to_validation(expr, rq.options);
             let expr = Expression::Unique(Box::new(expr));
 
             if rq.nested.is_empty() {
@@ -47,6 +51,7 @@ pub(crate) fn translate_read_query(query: ReadQuery, builder: &dyn QueryBuilder)
                 .map_err(TranslateError::QueryBuildFailure)?;
 
             let expr = Expression::Query(query);
+            let expr = convert_options_to_validation(expr, mrq.options);
 
             let expr = if needs_reversed_order {
                 Expression::Reverse(Box::new(expr))
@@ -82,10 +87,16 @@ pub(crate) fn translate_read_query(query: ReadQuery, builder: &dyn QueryBuilder)
             group_by,
             having,
         }) => {
+            let has_group_by = !group_by.is_empty();
             let query = builder
                 .build_aggregate(&model, args, &selectors, group_by, having)
                 .map_err(TranslateError::QueryBuildFailure)?;
-            Expression::Unique(Box::new(Expression::Query(query)))
+            let expr = Expression::Query(query);
+            if has_group_by {
+                expr
+            } else {
+                Expression::Unique(expr.into())
+            }
         }
     })
 }
@@ -290,6 +301,16 @@ fn build_read_one2m_query(
         expr = Expression::Unique(Box::new(expr));
     }
     Ok((expr, JoinFields(join_fields)))
+}
+
+fn convert_options_to_validation(expr: Expression, options: QueryOptions) -> Expression {
+    if options.contains(QueryOption::ThrowOnEmpty) {
+        let expectation =
+            DataExpectation::non_empty_rows(MissingRecord::builder().operation(DataOperation::Query).build());
+        Expression::validate_expectation(&expectation, expr)
+    } else {
+        expr
+    }
 }
 
 struct JoinFields(Vec<String>);
