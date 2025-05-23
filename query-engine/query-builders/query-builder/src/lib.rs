@@ -1,8 +1,9 @@
 use query_structure::{
     AggregationSelection, FieldSelection, Filter, Model, PrismaValue, QueryArguments, RecordFilter, RelationField,
-    ScalarCondition, ScalarField, SelectionResult, WriteArgs,
+    RelationLoadStrategy, ScalarCondition, ScalarField, SelectionResult, TaggedPrismaValue, WriteArgs,
 };
 use serde::Serialize;
+use std::collections::BTreeMap;
 use std::fmt::Formatter;
 use std::{collections::HashMap, fmt};
 
@@ -17,13 +18,14 @@ pub trait QueryBuilder {
         model: &Model,
         query_arguments: QueryArguments,
         selected_fields: &FieldSelection,
+        relation_load_strategy: RelationLoadStrategy,
     ) -> Result<DbQuery, Box<dyn std::error::Error + Send + Sync>>;
 
     /// Retrieve related records through an M2M relation.
     #[cfg(feature = "relation_joins")]
     fn build_get_related_records(
         &self,
-        link: RelationLink,
+        linkage: RelationLinkage,
         query_arguments: QueryArguments,
         selected_fields: &FieldSelection,
     ) -> Result<DbQuery, Box<dyn std::error::Error + Send + Sync>>;
@@ -116,28 +118,68 @@ pub trait QueryBuilder {
 }
 
 #[derive(Debug)]
-pub struct RelationLink {
-    field: RelationField,
-    condition: Option<ScalarCondition>,
+pub struct ConditionalLink {
+    field: ScalarField,
+    conditions: Vec<ScalarCondition>,
 }
 
-impl RelationLink {
-    pub fn new(field: RelationField, condition: Option<ScalarCondition>) -> Self {
-        Self { field, condition }
+impl ConditionalLink {
+    pub fn new(field: ScalarField, conditions: Vec<ScalarCondition>) -> Self {
+        Self { field, conditions }
     }
 
-    pub fn field(&self) -> &RelationField {
+    pub fn field(&self) -> &ScalarField {
         &self.field
     }
 
-    pub fn into_field_and_condition(self) -> (RelationField, Option<ScalarCondition>) {
-        (self.field, self.condition)
+    pub fn into_field_and_conditions(self) -> (ScalarField, Vec<ScalarCondition>) {
+        (self.field, self.conditions)
     }
 }
 
-impl fmt::Display for RelationLink {
+#[derive(Debug)]
+pub struct RelationLinkage {
+    parent_field: RelationField,
+    conditions: BTreeMap<ScalarField, Vec<ScalarCondition>>,
+}
+
+impl RelationLinkage {
+    pub fn new(field: RelationField, links: Vec<ConditionalLink>) -> Self {
+        Self {
+            parent_field: field,
+            conditions: links
+                .into_iter()
+                .map(ConditionalLink::into_field_and_conditions)
+                .collect(),
+        }
+    }
+
+    pub fn parent_field(&self) -> &RelationField {
+        &self.parent_field
+    }
+
+    pub fn add_condition(&mut self, field: ScalarField, condition: ScalarCondition) {
+        self.conditions.entry(field).or_default().push(condition);
+    }
+
+    pub fn into_parent_field_and_conditions(
+        self,
+    ) -> (
+        RelationField,
+        impl Iterator<Item = (ScalarField, Vec<ScalarCondition>)> + fmt::Debug,
+    ) {
+        (self.parent_field, self.conditions.into_iter())
+    }
+}
+
+impl fmt::Display for RelationLinkage {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}@{}", self.field.relation().name(), self.field.model().name())
+        write!(
+            f,
+            "{}@{}",
+            self.parent_field.relation().name(),
+            self.parent_field.model().name()
+        )
     }
 }
 
@@ -145,10 +187,15 @@ impl fmt::Display for RelationLink {
 #[serde(tag = "type", rename_all = "camelCase")]
 pub enum DbQuery {
     #[serde(rename_all = "camelCase")]
-    RawSql { sql: String, params: Vec<PrismaValue> },
+    RawSql {
+        sql: String,
+        #[serde(serialize_with = "serialize_params")]
+        params: Vec<PrismaValue>,
+    },
     #[serde(rename_all = "camelCase")]
     TemplateSql {
         fragments: Vec<Fragment>,
+        #[serde(serialize_with = "serialize_params")]
         params: Vec<PrismaValue>,
         placeholder_format: PlaceholderFormat,
     },
@@ -201,4 +248,11 @@ impl fmt::Display for DbQuery {
         }
         Ok(())
     }
+}
+
+fn serialize_params<S>(obj: &[PrismaValue], serializer: S) -> Result<S::Ok, S::Error>
+where
+    S: serde::Serializer,
+{
+    serializer.collect_seq(obj.iter().map(TaggedPrismaValue::from))
 }

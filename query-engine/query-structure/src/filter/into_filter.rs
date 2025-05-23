@@ -1,3 +1,5 @@
+use itertools::Itertools;
+
 use super::*;
 
 use crate::ScalarCompare;
@@ -26,6 +28,18 @@ impl IntoFilter for SelectionResult {
 
 impl IntoFilter for Vec<SelectionResult> {
     fn filter(self) -> Filter {
+        if let Some(pairs) = self
+            .iter()
+            .exactly_one()
+            .ok()
+            .and_then(SelectionResult::as_placeholders)
+        {
+            return Filter::and(pairs.into_iter().fold(vec![], |mut acc, (sf, val)| {
+                acc.push(sf.is_in_template(val.clone()));
+                acc
+            }));
+        }
+
         let filters = self.into_iter().fold(vec![], |mut acc, id| {
             acc.push(id.filter());
             acc

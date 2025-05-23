@@ -138,8 +138,11 @@ async function dispatchMessage(msg: Message): Promise<unknown> {
       return rollbackTransaction(msg.params.txId, unwrapState())
     case 'teardown':
       return teardown(unwrapState())
-    case 'getLogs':
-      return logs
+    case 'getLogs': {
+      const clonedLogs = [...logs]
+      logs.length = 0
+      return clonedLogs
+    }
     default:
       assertNever(
         msg,
@@ -174,11 +177,10 @@ async function initializeSchema(
 
   const transactionManager = new TransactionManager({
     driverAdapter: adapter,
-    // Transaction timeouts matching `TransactionManager.test.ts` in the `prisma` repo
+    // Transaction timeouts matching those used by the Prisma Client
     transactionOptions: {
-      maxWait: 200,
-      timeout: 500,
-      isolationLevel: 'SERIALIZABLE',
+      maxWait: 2000,
+      timeout: 5000,
     } satisfies TransactionOptions,
     tracingHelper: noopTracingHelper,
   })
@@ -189,6 +191,8 @@ async function initializeSchema(
     driverAdapter: adapter,
     transactionManager,
   }
+
+  logs.length = 0
 
   if (adapter.getConnectionInfo) {
     return adapter.getConnectionInfo()

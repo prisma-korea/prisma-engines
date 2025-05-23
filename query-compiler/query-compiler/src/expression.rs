@@ -1,6 +1,9 @@
+use std::collections::HashMap;
+
 use crate::result_node::ResultNode;
 use query_builder::DbQuery;
-use query_core::DataRule;
+use query_core::{DataExpectation, DataRule};
+use query_structure::PrismaValue;
 use serde::Serialize;
 
 mod format;
@@ -29,6 +32,7 @@ pub struct JoinExpression {
     pub child: Expression,
     pub on: Vec<(String, String)>,
     pub parent_field: String,
+    pub is_relation_unique: bool,
 }
 
 #[derive(Debug, Serialize)]
@@ -89,20 +93,85 @@ pub enum Expression {
         structure: ResultNode,
     },
 
+    /// Validates the expression according to the data rule and throws an error if it doesn't match.
     Validate {
         expr: Box<Expression>,
         rules: Vec<DataRule>,
         error_identifier: &'static str,
         context: serde_json::Value,
     },
+
+    /// Checks if `value` satisifies the `rule`, and executes `then` if it does, or `r#else` if it doesn't.
+    If {
+        value: Box<Expression>,
+        rule: DataRule,
+        then: Box<Expression>,
+        r#else: Box<Expression>,
+    },
+
+    /// Unit value.
+    Unit,
+
+    /// Difference between the sets of rows in `from` and `to` (i.e. `from - to`,
+    /// or the set of rows that are in `from` but not in `to`).
+    Diff { from: Box<Expression>, to: Box<Expression> },
+
+    /// Deduplicates the result of an expression by a list of fields.
+    DistinctBy { expr: Box<Expression>, fields: Vec<String> },
+
+    /// Pagination over the result of an expression.
+    Paginate {
+        expr: Box<Expression>,
+        pagination: Pagination,
+    },
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Pagination {
+    cursor: Option<HashMap<String, PrismaValue>>,
+    take: Option<i64>,
+    skip: Option<i64>,
+    linking_fields: Option<Vec<String>>,
+}
+
+impl Pagination {
+    pub fn new(cursor: Option<HashMap<String, PrismaValue>>, take: Option<i64>, skip: Option<i64>) -> Self {
+        Self {
+            cursor,
+            take,
+            skip,
+            linking_fields: None,
+        }
+    }
+
+    pub fn with_linking_fields(self, linking_fields: impl Into<Vec<String>>) -> Self {
+        Self {
+            linking_fields: Some(linking_fields.into()),
+            ..self
+        }
+    }
+
+    pub fn cursor(&self) -> Option<&HashMap<String, PrismaValue>> {
+        self.cursor.as_ref()
+    }
+
+    pub fn take(&self) -> Option<i64> {
+        self.take
+    }
+
+    pub fn skip(&self) -> Option<i64> {
+        self.skip
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize)]
 pub enum ExpressionType {
     Scalar,
     Record,
     List(Box<ExpressionType>),
     Dynamic,
+    Unit,
 }
 
 impl ExpressionType {
@@ -158,6 +227,28 @@ impl Expression {
             Expression::Transaction(expression) => expression.r#type(),
             Expression::DataMap { expr, .. } => expr.r#type(),
             Expression::Validate { expr, .. } => expr.r#type(),
+            Expression::If { then, r#else, .. } => {
+                let then_type = then.r#type();
+                let else_type = r#else.r#type();
+                if then_type == else_type {
+                    then_type
+                } else {
+                    ExpressionType::Dynamic
+                }
+            }
+            Expression::Unit => ExpressionType::Unit,
+            Expression::Diff { from, .. } => from.r#type(),
+            Expression::DistinctBy { expr, .. } => expr.r#type(),
+            Expression::Paginate { expr, .. } => expr.r#type(),
+        }
+    }
+
+    pub fn validate_expectation(expectation: &DataExpectation, expr: Expression) -> Expression {
+        Expression::Validate {
+            expr: expr.into(),
+            rules: expectation.rules().to_vec(),
+            error_identifier: expectation.error().id(),
+            context: expectation.error().context(),
         }
     }
 }

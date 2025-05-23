@@ -15,6 +15,7 @@ import {
   QueryInterpreter,
   type QueryInterpreterTransactionManager,
   QueryPlanNode,
+  safeJsonStringify,
   type TransactionManager,
   UserFacingError,
 } from '@prisma/client-engine-runtime'
@@ -46,48 +47,53 @@ class QueryPipeline {
   }
 
   async run(query: QueryParams['query'], txId: QueryParams['txId']) {
-    if ('batch' in query) {
-      const { batch, transaction } = query
+    try {
+      if ('batch' in query) {
+        const { batch, transaction } = query
 
-      const results = transaction
-        ? await this.executeTransactionalBatch(
-            batch,
-            parseIsolationLevel(transaction.isolationLevel),
+        // A transactional batch starts its own transaction, and hence doesn't
+        // need the transaction ID, as we don't currently support nested
+        // transactions. An independent batch, however, may itself be executed
+        // within an interactive transaction, and therefore needs the current
+        // transaction ID.
+        const results = transaction
+          ? await this.executeTransactionalBatch(
+              batch,
+              parseIsolationLevel(transaction.isolationLevel),
+            )
+          : await this.executeIndependentBatch(batch, txId)
+
+        debug('🟢 Batch query results: ', results)
+
+        return safeJsonStringify({
+          batchResult: batch.map((query, index) =>
+            getResponseInQeFormat(query, results[index]),
+          ),
+        })
+      } else {
+        const queryable = txId
+          ? this.transactionManager.getTransaction({ id: txId }, 'query')
+          : this.driverAdapter
+
+        if (!queryable) {
+          throw new Error(
+            `No transaction with id ${txId} found. Please call 'startTx' first.`,
           )
-        : await this.executeIndependentBatch(batch)
+        }
 
-      debug('🟢 Batch query results: ', results)
-
-      return JSON.stringify({
-        batchResult: batch.map((query, index) =>
-          getResponseInQeFormat(query, results[index]),
-        ),
-      })
-    } else {
-      const queryable = txId
-        ? this.transactionManager.getTransaction({ id: txId }, 'query')
-        : this.driverAdapter
-
-      if (!queryable) {
-        throw new Error(
-          `No transaction with id ${txId} found. Please call 'startTx' first.`,
-        )
-      }
-
-      try {
         const result = await this.executeQuery(queryable, query, !txId)
 
         debug('🟢 Query result: ', util.inspect(result, false, null, true))
 
-        return JSON.stringify(getResponseInQeFormat(query, result))
-      } catch (error) {
-        if (error instanceof UserFacingError) {
-          return JSON.stringify({
-            errors: [error.toQueryResponseErrorObject()],
-          })
-        }
-        throw error
+        return safeJsonStringify(getResponseInQeFormat(query, result))
       }
+    } catch (error) {
+      if (error instanceof UserFacingError) {
+        return safeJsonStringify({
+          errors: [error.toQueryResponseErrorObject()],
+        })
+      }
+      throw error
     }
   }
 
@@ -99,7 +105,7 @@ class QueryPipeline {
     let queryPlanString: string
     try {
       queryPlanString = withLocalPanicHandler(() =>
-        this.compiler.compile(JSON.stringify(query)),
+        this.compiler.compile(safeJsonStringify(query)),
       )
     } catch (error) {
       if (typeof error.message === 'string' && typeof error.code === 'string') {
@@ -123,7 +129,7 @@ class QueryPipeline {
       transactionManager: qiTransactionManager,
       placeholderValues: {},
       onQuery: (event: QueryEvent) => {
-        this.logs.push(JSON.stringify(event))
+        this.logs.push(safeJsonStringify(event))
       },
       tracingHelper: noopTracingHelper,
     }
@@ -139,10 +145,20 @@ class QueryPipeline {
     return interpreter.run(queryPlan, queryable)
   }
 
-  private async executeIndependentBatch(queries: readonly JsonProtocolQuery[]) {
+  private async executeIndependentBatch(
+    queries: readonly JsonProtocolQuery[],
+    txId: QueryParams['txId'],
+  ) {
+    const queryable =
+      txId !== null
+        ? this.transactionManager.getTransaction({ id: txId }, 'batch query')
+        : this.driverAdapter
+
+    const canStartNewTransaction = txId === null
+
     return Promise.all(
       queries.map((query) =>
-        this.executeQuery(this.driverAdapter, query, true),
+        this.executeQuery(queryable, query, canStartNewTransaction),
       ),
     )
   }
@@ -152,8 +168,8 @@ class QueryPipeline {
     isolationLevel?: IsolationLevel,
   ) {
     const txInfo = await this.transactionManager.startTransaction({
-      maxWait: 200,
-      timeout: 500,
+      maxWait: 2000,
+      timeout: 5000,
       isolationLevel,
     })
 
@@ -184,7 +200,10 @@ class QueryPipeline {
 function getResponseInQeFormat(query: JsonProtocolQuery, result: unknown) {
   return {
     data: {
-      [getFullOperationName(query)]: getOperationResultInQeFormat(result),
+      [getFullOperationName(query)]:
+        query.action !== 'queryRaw' && query.action !== 'executeRaw'
+          ? getOperationResultInQeFormat(result)
+          : result,
     },
   }
 }
@@ -195,6 +214,10 @@ function getFullOperationName(query: JsonProtocolQuery): string {
       return `createMany${query.modelName}AndReturn`
     case 'updateManyAndReturn':
       return `updateMany${query.modelName}AndReturn`
+    case 'findFirstOrThrow':
+      return `findFirst${query.modelName}OrThrow`
+    case 'findUniqueOrThrow':
+      return `findUnique${query.modelName}OrThrow`
     default:
       if (query.modelName) {
         return query.action + query.modelName

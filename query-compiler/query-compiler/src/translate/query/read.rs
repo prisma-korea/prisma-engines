@@ -1,64 +1,96 @@
 use crate::{
     TranslateError,
-    expression::{Binding, Expression, JoinExpression},
+    expression::{Binding, Expression, JoinExpression, Pagination},
     translate::TranslateResult,
 };
 use itertools::Itertools;
-use query_builder::{QueryArgumentsExt, QueryBuilder, RelationLink};
-use query_core::{AggregateRecordsQuery, FilteredQuery, QueryGraphBuilderError, ReadQuery, RelatedRecordsQuery};
+use query_builder::{ConditionalLink, QueryArgumentsExt, QueryBuilder, RelationLinkage};
+use query_core::{
+    AggregateRecordsQuery, DataExpectation, DataOperation, MissingRecord, QueryGraphBuilderError, QueryOption,
+    QueryOptions, ReadQuery, RelatedRecordsQuery,
+};
 use query_structure::{
-    ConditionValue, FieldSelection, Filter, IntoFilter, PrismaValue, QueryArguments, QueryMode, RelationField,
-    ScalarCondition, ScalarFilter, ScalarProjection, SelectionResult, Take,
+    ConditionValue, FieldSelection, Filter, PrismaValue, QueryArguments, QueryMode, RelationLoadStrategy,
+    ScalarCondition, ScalarFilter, ScalarProjection, Take,
 };
 use std::slice;
 
 pub(crate) fn translate_read_query(query: ReadQuery, builder: &dyn QueryBuilder) -> TranslateResult<Expression> {
     Ok(match query {
         ReadQuery::RecordQuery(rq) => {
-            let selected_fields = rq.selected_fields.without_relations().into_virtuals_last();
+            let selected_fields = match rq.relation_load_strategy {
+                RelationLoadStrategy::Join => rq.selected_fields.into_virtuals_last(),
+                RelationLoadStrategy::Query => rq.selected_fields.without_relations().into_virtuals_last(),
+            };
 
             let args = QueryArguments::from((
                 rq.model.clone(),
                 rq.filter.expect("ReadOne query should always have filter set"),
             ))
             .with_take(Take::One);
+
             let query = builder
-                .build_get_records(&rq.model, args, &selected_fields)
+                .build_get_records(&rq.model, args, &selected_fields, rq.relation_load_strategy)
                 .map_err(TranslateError::QueryBuildFailure)?;
 
             let expr = Expression::Query(query);
+            let expr = convert_options_to_validation(expr, rq.options);
             let expr = Expression::Unique(Box::new(expr));
 
-            if rq.nested.is_empty() {
-                expr
-            } else {
-                add_inmemory_join(expr, rq.nested, builder)?
+            match rq.relation_load_strategy {
+                RelationLoadStrategy::Query if !rq.nested.is_empty() => add_inmemory_join(expr, rq.nested, builder)?,
+                _ => expr,
             }
         }
 
-        ReadQuery::ManyRecordsQuery(mrq) => {
-            let selected_fields = mrq.selected_fields.without_relations().into_virtuals_last();
+        ReadQuery::ManyRecordsQuery(mut mrq) => {
+            let selected_fields = match mrq.relation_load_strategy {
+                RelationLoadStrategy::Join => mrq.selected_fields.into_virtuals_last(),
+                RelationLoadStrategy::Query => mrq.selected_fields.without_relations().into_virtuals_last(),
+            };
+
             let needs_reversed_order = mrq.args.needs_reversed_order();
             let take = mrq.args.take;
 
+            let pagination = mrq
+                .args
+                .requires_inmemory_processing()
+                .then(|| extract_pagination(&mut mrq.args));
+            let distinct_by = mrq
+                .args
+                .requires_inmemory_distinct()
+                .then(|| extract_distinct_by(&mut mrq.args));
+
             // TODO: we ignore chunking for now
             let query = builder
-                .build_get_records(&mrq.model, mrq.args, &selected_fields)
+                .build_get_records(&mrq.model, mrq.args, &selected_fields, mrq.relation_load_strategy)
                 .map_err(TranslateError::QueryBuildFailure)?;
 
-            let expr = Expression::Query(query);
+            let mut expr = Expression::Query(query);
 
-            let expr = if needs_reversed_order {
-                Expression::Reverse(Box::new(expr))
-            } else {
-                expr
+            if let Some(fields) = distinct_by {
+                expr = Expression::DistinctBy {
+                    expr: expr.into(),
+                    fields,
+                };
             };
 
-            let expr = if mrq.nested.is_empty() {
-                expr
-            } else {
-                add_inmemory_join(expr, mrq.nested, builder)?
+            if let Some(pagination) = pagination {
+                expr = Expression::Paginate {
+                    expr: expr.into(),
+                    pagination,
+                };
             };
+
+            if needs_reversed_order {
+                expr = Expression::Reverse(Box::new(expr));
+            };
+
+            expr = convert_options_to_validation(expr, mrq.options);
+
+            if mrq.relation_load_strategy == RelationLoadStrategy::Query && !mrq.nested.is_empty() {
+                expr = add_inmemory_join(expr, mrq.nested, builder)?;
+            }
 
             match take {
                 Take::One => Expression::Unique(Box::new(expr)),
@@ -67,8 +99,12 @@ pub(crate) fn translate_read_query(query: ReadQuery, builder: &dyn QueryBuilder)
         }
 
         ReadQuery::RelatedRecordsQuery(rrq) => {
-            let (expr, _) = build_read_related_records(rrq, None, builder)?;
-            expr
+            let (expr, join) = build_read_related_records(rrq, vec![], builder)?;
+            if join.is_relation_unique {
+                Expression::Unique(Box::new(expr))
+            } else {
+                expr
+            }
         }
 
         ReadQuery::AggregateRecordsQuery(AggregateRecordsQuery {
@@ -82,15 +118,21 @@ pub(crate) fn translate_read_query(query: ReadQuery, builder: &dyn QueryBuilder)
             group_by,
             having,
         }) => {
+            let has_group_by = !group_by.is_empty();
             let query = builder
                 .build_aggregate(&model, args, &selectors, group_by, having)
                 .map_err(TranslateError::QueryBuildFailure)?;
-            Expression::Unique(Box::new(Expression::Query(query)))
+            let expr = Expression::Query(query);
+            if has_group_by {
+                expr
+            } else {
+                Expression::Unique(expr.into())
+            }
         }
     })
 }
 
-fn add_inmemory_join(
+pub(super) fn add_inmemory_join(
     parent: Expression,
     nested: Vec<ReadQuery>,
     builder: &dyn QueryBuilder,
@@ -123,30 +165,31 @@ fn add_inmemory_join(
         .map(|rrq| -> TranslateResult<JoinExpression> {
             let parent_field_name = rrq.parent_field.name().to_owned();
             let left_scalars = rrq.parent_field.left_scalars();
-            let conditions = rrq
-                .parent_field
-                .left_scalars()
-                .into_iter()
-                .map(|field| {
+            let links = left_scalars
+                .iter()
+                .zip(rrq.parent_field.related_field().left_scalars())
+                .map(|(parent_scalar, child_scalar)| {
                     let placeholder = PrismaValue::placeholder(
-                        format!("@parent${}", field.name()),
-                        field.type_identifier().to_prisma_type(),
+                        format!("@parent${}", parent_scalar.name()),
+                        parent_scalar.type_identifier().to_prisma_type(),
                     );
-                    if parent.r#type().is_list() {
+                    let condition = if parent.r#type().is_list() {
                         ScalarCondition::InTemplate(ConditionValue::value(placeholder))
                     } else {
                         ScalarCondition::Equals(ConditionValue::value(placeholder))
-                    }
+                    };
+                    ConditionalLink::new(child_scalar.clone(), vec![condition])
                 })
                 .collect();
-            let (child, join_fields) = build_read_related_records(rrq, Some(conditions), builder)?;
+            let (child, join) = build_read_related_records(rrq, links, builder)?;
 
             Ok(JoinExpression {
                 child,
+                is_relation_unique: join.is_relation_unique,
                 on: left_scalars
                     .into_iter()
                     .map(|sf| sf.name().to_owned())
-                    .zip(join_fields)
+                    .zip(join.into_fields())
                     .collect(),
                 parent_field: parent_field_name,
             })
@@ -169,136 +212,180 @@ fn add_inmemory_join(
 }
 
 fn build_read_related_records(
-    rrq: RelatedRecordsQuery,
-    conditions: Option<Vec<ScalarCondition>>,
+    mut rrq: RelatedRecordsQuery,
+    links: Vec<ConditionalLink>,
     builder: &dyn QueryBuilder,
-) -> TranslateResult<(Expression, JoinFields)> {
+) -> TranslateResult<(Expression, JoinMetadata)> {
+    let mut linkage = RelationLinkage::new(rrq.parent_field.clone(), links);
+
+    if let Some(results) = rrq.parent_results {
+        let parent_link_id = rrq.parent_field.linking_fields();
+        let child_link_id = rrq.parent_field.related_field().linking_fields();
+
+        let selection = results
+            .into_iter()
+            .exactly_one()
+            .expect("parent results should be exactly one in the query compiler")
+            .split_into(slice::from_ref(&parent_link_id))
+            .pop()
+            .unwrap();
+
+        for (field, val) in child_link_id
+            .assimilate(selection)
+            .map_err(QueryGraphBuilderError::from)?
+            .pairs
+            .into_iter()
+        {
+            let Some(sf) = field.as_scalar() else { continue };
+            linkage.add_condition(sf.clone(), ScalarCondition::InTemplate(val.into()));
+        }
+    }
+
     let selected_fields = rrq.selected_fields.without_relations().into_virtuals_last();
     let needs_reversed_order = rrq.args.needs_reversed_order();
 
-    let (mut child_query, join_on) = if rrq.parent_field.relation().is_many_to_many() {
-        build_read_m2m_query(rrq.parent_field, conditions, rrq.args, &selected_fields, builder)?
+    let pagination = (rrq.args.take.is_some() || rrq.args.skip.is_some() || rrq.args.cursor.is_some())
+        .then(|| extract_pagination(&mut rrq.args));
+    let distinct_by = (rrq.args.distinct.is_some()).then(|| extract_distinct_by(&mut rrq.args));
+
+    let (mut child_query, join) = if rrq.parent_field.relation().is_many_to_many() {
+        build_read_m2m_query(linkage, rrq.args, &selected_fields, builder)?
     } else {
-        build_read_one2m_query(
-            rrq.parent_field,
-            conditions,
-            rrq.args,
-            rrq.parent_results,
-            &selected_fields,
-            builder,
-        )?
+        build_read_one2m_query(linkage, rrq.args, &selected_fields, builder)?
+    };
+
+    if let Some(fields) = distinct_by {
+        child_query = Expression::DistinctBy {
+            expr: child_query.into(),
+            fields: fields.into_iter().chain(join.fields.iter().cloned()).collect(),
+        };
+    };
+
+    if let Some(pagination) = pagination {
+        child_query = Expression::Paginate {
+            expr: child_query.into(),
+            pagination: pagination.with_linking_fields(join.fields.clone()),
+        };
     };
 
     if needs_reversed_order {
         child_query = Expression::Reverse(Box::new(child_query));
-    }
+    };
 
     if !rrq.nested.is_empty() {
         child_query = add_inmemory_join(child_query, rrq.nested, builder)?;
     };
-    Ok((child_query, join_on))
+
+    Ok((child_query, join))
 }
 
 fn build_read_m2m_query(
-    field: RelationField,
-    conditions: Option<Vec<ScalarCondition>>,
+    linkage: RelationLinkage,
     args: QueryArguments,
     selected_fields: &FieldSelection,
     builder: &dyn QueryBuilder,
-) -> TranslateResult<(Expression, JoinFields)> {
-    let condition = conditions.map(|mut conditions| {
-        let condition = conditions
-            .pop()
-            .expect("should have at least one condition in m2m relation");
-        assert!(
-            conditions.is_empty(),
-            "should have at most one condition in m2m relation"
-        );
-        condition
-    });
-
-    let link = RelationLink::new(field, condition);
-    let link_name = link.to_string();
+) -> TranslateResult<(Expression, JoinMetadata)> {
+    let link_name = linkage.to_string();
 
     let query = builder
-        .build_get_related_records(link, args, selected_fields)
+        .build_get_related_records(linkage, args, selected_fields)
         .map_err(TranslateError::QueryBuildFailure)?;
 
-    Ok((Expression::Query(query), JoinFields(vec![link_name])))
+    Ok((
+        Expression::Query(query),
+        JoinMetadata {
+            fields: vec![link_name],
+            is_relation_unique: false,
+        },
+    ))
 }
 
 fn build_read_one2m_query(
-    field: RelationField,
-    conditions: Option<Vec<ScalarCondition>>,
+    linkage: RelationLinkage,
     mut args: QueryArguments,
-    parent_results: Option<Vec<SelectionResult>>,
     selected_fields: &FieldSelection,
     builder: &dyn QueryBuilder,
-) -> TranslateResult<(Expression, JoinFields)> {
-    let related_scalars = field.related_field().left_scalars();
-    let join_fields = related_scalars.iter().map(|sf| sf.name().to_owned()).collect();
+) -> TranslateResult<(Expression, JoinMetadata)> {
+    let (field, conditions_per_field) = linkage.into_parent_field_and_conditions();
 
-    if let Some(results) = parent_results {
-        let parent_link_id = field.linking_fields();
-        let child_link_id = field.related_field().linking_fields();
-
-        let links = results
-            .into_iter()
-            .map(|result| {
-                let parent_link = result.split_into(slice::from_ref(&parent_link_id)).pop().unwrap();
-                child_link_id.assimilate(parent_link)
+    let filters = args
+        .filter
+        .take()
+        .into_iter()
+        .chain(conditions_per_field.flat_map(|(field, conditions)| {
+            conditions.into_iter().map(move |condition| {
+                Filter::Scalar(ScalarFilter {
+                    condition,
+                    projection: ScalarProjection::Single(field.clone()),
+                    mode: QueryMode::Default,
+                })
             })
-            .collect::<Result<Vec<_>, _>>()
-            .map_err(QueryGraphBuilderError::from)?;
+        }))
+        .collect_vec();
 
-        let filter = args
-            .filter
-            .take()
-            .into_iter()
-            .fold(links.filter(), |acc, filter| Filter::and(vec![acc, filter]));
-        args.filter = Some(filter);
-    }
+    args.filter = Some(Filter::And(filters));
 
-    // TODO: we ignore chunking for now
-    if let Some(conditions) = conditions {
-        assert_eq!(
-            related_scalars.len(),
-            conditions.len(),
-            "linking fields should match conditions"
-        );
-        for (condition, child_field) in conditions.into_iter().zip(related_scalars) {
-            args.add_filter(Filter::Scalar(ScalarFilter {
-                condition,
-                projection: ScalarProjection::Single(child_field.clone()),
-                mode: QueryMode::Default,
-            }));
-        }
-    }
-
-    let to_one_relation = !field.arity().is_list();
-    let args = if to_one_relation {
-        args.with_take(Take::Some(1))
-    } else {
-        args
-    };
     let query = builder
-        .build_get_records(&field.related_model(), args, selected_fields)
+        .build_get_records(
+            &field.related_model(),
+            args,
+            selected_fields,
+            RelationLoadStrategy::Query,
+        )
         .map_err(TranslateError::QueryBuildFailure)?;
 
-    let mut expr = Expression::Query(query);
-    if to_one_relation {
-        expr = Expression::Unique(Box::new(expr));
-    }
-    Ok((expr, JoinFields(join_fields)))
+    let expr = Expression::Query(query);
+
+    Ok((
+        expr,
+        JoinMetadata {
+            fields: field
+                .related_field()
+                .left_scalars()
+                .iter()
+                .map(|sf| sf.name().to_owned())
+                .collect(),
+            is_relation_unique: !field.arity().is_list(),
+        },
+    ))
 }
 
-struct JoinFields(Vec<String>);
+fn convert_options_to_validation(expr: Expression, options: QueryOptions) -> Expression {
+    if options.contains(QueryOption::ThrowOnEmpty) {
+        let expectation =
+            DataExpectation::non_empty_rows(MissingRecord::builder().operation(DataOperation::Query).build());
+        Expression::validate_expectation(&expectation, expr)
+    } else {
+        expr
+    }
+}
 
-impl IntoIterator for JoinFields {
-    type Item = String;
-    type IntoIter = std::vec::IntoIter<Self::Item>;
+fn extract_pagination(args: &mut QueryArguments) -> Pagination {
+    args.ignore_take = true;
+    args.ignore_skip = true;
 
-    fn into_iter(self) -> Self::IntoIter {
-        self.0.into_iter()
+    let cursor = args.cursor.as_ref().map(|cursor| {
+        cursor
+            .pairs()
+            .map(|(sf, val)| (sf.db_name().into_owned(), val.clone()))
+            .collect()
+    });
+    Pagination::new(cursor, args.take.abs(), args.skip)
+}
+
+fn extract_distinct_by(args: &mut QueryArguments) -> Vec<String> {
+    let distinct = args.distinct.take().unwrap();
+    distinct.db_names().collect_vec()
+}
+
+#[derive(Debug, Clone)]
+struct JoinMetadata {
+    fields: Vec<String>,
+    is_relation_unique: bool,
+}
+
+impl JoinMetadata {
+    fn into_fields(self) -> Vec<String> {
+        self.fields
     }
 }

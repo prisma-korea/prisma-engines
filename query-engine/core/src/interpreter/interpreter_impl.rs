@@ -19,34 +19,27 @@ pub enum ExpressionResult {
     /// A fixed result returned in the query graph.
     FixedResult(Vec<SelectionResult>),
 
-    /// A result from a computation in the query graph.
-    Computation(ComputationResult),
-
     /// An empty result
     Empty,
 }
 
-#[derive(Debug, Clone)]
-pub enum ComputationResult {
-    Diff(DiffResult),
-}
-
-/// Diff of two identifier vectors A and B:
-/// `left` contains all elements that are in A but not in B.
-/// `right` contains all elements that are in B but not in A.
-#[derive(Debug, Clone)]
-pub struct DiffResult {
-    pub left: Vec<SelectionResult>,
-    pub right: Vec<SelectionResult>,
-}
-
-impl DiffResult {
-    pub fn is_empty(&self) -> bool {
-        self.left.is_empty() && self.right.is_empty()
-    }
-}
-
 impl ExpressionResult {
+    pub fn returned_row_count(&self) -> Option<usize> {
+        match self {
+            Self::Query(result) => result.returned_row_count(),
+            Self::FixedResult(results) => Some(results.len()),
+            Self::Empty => Some(0),
+        }
+    }
+
+    pub fn affected_row_count(&self) -> Option<usize> {
+        match self {
+            Self::Query(result) => result.affected_row_count(),
+            Self::FixedResult(_) => None,
+            Self::Empty => Some(0),
+        }
+    }
+
     /// Attempts to transform this `ExpressionResult` into a vector of `SelectionResult`s corresponding to the passed desired selection shape.
     /// A vector is returned as some expression results return more than one result row at once.
     pub fn as_selection_results(&self, field_selection: &FieldSelection) -> InterpretationResult<Vec<SelectionResult>> {
@@ -111,17 +104,6 @@ impl ExpressionResult {
 
         converted.ok_or_else(|| {
             InterpreterError::InterpretationError("Unable to convert result into a query result".to_owned(), None)
-        })
-    }
-
-    pub fn as_diff_result(&self) -> InterpretationResult<&DiffResult> {
-        let converted = match self {
-            Self::Computation(ComputationResult::Diff(ref d)) => Some(d),
-            _ => None,
-        };
-
-        converted.ok_or_else(|| {
-            InterpreterError::InterpretationError("Unable to convert result into a computation result".to_owned(), None)
         })
     }
 }

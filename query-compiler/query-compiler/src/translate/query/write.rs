@@ -1,12 +1,15 @@
-use itertools::Itertools;
+use itertools::{Either, Itertools};
 use query_builder::QueryBuilder;
 use query_core::{
     ConnectRecords, DeleteManyRecords, DeleteRecord, DisconnectRecords, RawQuery, UpdateManyRecords, UpdateRecord,
     UpdateRecordWithSelection, WriteQuery,
 };
-use query_structure::{QueryArguments, Take};
+use query_structure::{QueryArguments, RelationLoadStrategy, Take};
+use sql_query_builder::write::split_write_args_by_shape;
 
 use crate::{TranslateError, expression::Expression, translate::TranslateResult};
+
+use super::read::add_inmemory_join;
 
 pub(crate) fn translate_write_query(query: WriteQuery, builder: &dyn QueryBuilder) -> TranslateResult<Expression> {
     Ok(match query {
@@ -24,34 +27,41 @@ pub(crate) fn translate_write_query(query: WriteQuery, builder: &dyn QueryBuilde
         }
 
         WriteQuery::CreateManyRecords(cmr) => {
-            if let Some(selected_fields) = cmr.selected_fields {
-                Expression::Concat(
-                    builder
-                        .build_inserts(&cmr.model, cmr.args, cmr.skip_duplicates, Some(&selected_fields.fields))
-                        .map_err(TranslateError::QueryBuildFailure)?
-                        .into_iter()
-                        .map(Expression::Query)
-                        .collect::<Vec<_>>(),
-                )
+            let split_args = if cmr.split_by_shape && !cmr.args.is_empty() {
+                Either::Left(split_write_args_by_shape(&cmr.model, cmr.args))
             } else {
-                Expression::Sum(
+                Either::Right([cmr.args])
+            };
+            let (projection, nested) = cmr.selected_fields.map(|sf| (sf.fields, sf.nested)).unzip();
+
+            let inserts = split_args
+                .into_iter()
+                .map(|args| {
                     builder
-                        .build_inserts(&cmr.model, cmr.args, cmr.skip_duplicates, None)
-                        .map_err(TranslateError::QueryBuildFailure)?
-                        .into_iter()
-                        .map(Expression::Execute)
-                        .collect::<Vec<_>>(),
-                )
+                        .build_inserts(&cmr.model, args, cmr.skip_duplicates, projection.as_ref())
+                        .map_err(TranslateError::QueryBuildFailure)
+                })
+                .flatten_ok();
+
+            if projection.is_some() {
+                let mut expr = Expression::Concat(inserts.map_ok(Expression::Query).try_collect()?);
+                let nested = nested.unwrap_or_default();
+                if !nested.is_empty() {
+                    expr = add_inmemory_join(expr, nested, builder)?;
+                }
+                expr
+            } else {
+                Expression::Sum(inserts.map_ok(Expression::Execute).try_collect()?)
             }
         }
 
         WriteQuery::UpdateManyRecords(UpdateManyRecords {
+            name: _,
             model,
             record_filter,
             args,
             selected_fields,
             limit,
-            ..
         }) => {
             let projection = selected_fields.as_ref().map(|f| &f.fields);
             let updates = builder
@@ -64,8 +74,13 @@ pub(crate) fn translate_write_query(query: WriteQuery, builder: &dyn QueryBuilde
                     Expression::Execute
                 })
                 .collect::<Vec<_>>();
-            if projection.is_some() {
-                Expression::Concat(updates)
+
+            if let Some(selected_fields) = selected_fields {
+                let mut expr = Expression::Concat(updates);
+                if !selected_fields.nested.is_empty() {
+                    expr = add_inmemory_join(expr, selected_fields.nested, builder)?;
+                }
+                expr
             } else {
                 Expression::Sum(updates)
             }
@@ -77,14 +92,13 @@ pub(crate) fn translate_write_query(query: WriteQuery, builder: &dyn QueryBuilde
             record_filter,
             args,
             selected_fields,
-            // TODO: we're ignoring selection order
             selection_order: _,
         })) => {
             let query = if args.is_empty() {
                 // if there's no args we can just issue a read query
                 let args = QueryArguments::from((model.clone(), record_filter.filter)).with_take(Take::Some(1));
                 builder
-                    .build_get_records(&model, args, &selected_fields)
+                    .build_get_records(&model, args, &selected_fields, RelationLoadStrategy::Query)
                     .map_err(TranslateError::QueryBuildFailure)?
             } else {
                 builder

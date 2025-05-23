@@ -2,7 +2,9 @@
   "modelName": "User",
   "action": "findMany",
   "query": {
-    "arguments": {},
+    "arguments": {
+      "relationLoadStrategy": "query"
+    },
     "selection": {
       "email": true,
       "_count": {
