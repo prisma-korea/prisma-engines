@@ -254,8 +254,9 @@ impl SqlRenderer for PostgresRenderer {
                     "DROP CONSTRAINT {}",
                     Quoted::postgres_ident(tables.previous.primary_key().unwrap().name())
                 )),
-                TableChange::RenamePrimaryKey => lines.push(format!(
-                    "RENAME CONSTRAINT {} TO {}",
+                TableChange::RenamePrimaryKey => after_statements.push(format!(
+                    "ALTER TABLE {} RENAME CONSTRAINT {} TO {}",
+                    quoted_alter_table_name(tables),
                     Quoted::postgres_ident(tables.previous.primary_key().unwrap().name()),
                     Quoted::postgres_ident(tables.next.primary_key().unwrap().name())
                 )),
@@ -318,7 +319,7 @@ impl SqlRenderer for PostgresRenderer {
         }
 
         if lines.is_empty() {
-            return Vec::new();
+            return before_statements.into_iter().chain(after_statements).collect();
         }
 
         if self.is_cockroach {
@@ -331,7 +332,6 @@ impl SqlRenderer for PostgresRenderer {
             out
         } else {
             let alter_table = format!("ALTER TABLE {} {}", quoted_alter_table_name(tables), lines.join(",\n"));
-
             before_statements
                 .into_iter()
                 .chain(std::iter::once(alter_table))
